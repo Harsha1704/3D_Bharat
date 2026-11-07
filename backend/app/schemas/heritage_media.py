@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -46,3 +46,15 @@ class HeritageMediaResponse(HeritageMediaBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HeritageMediaResponseWithUrl(HeritageMediaResponse):
+    file_url: str
+
+
+class HeritageMediaDiscoveryResponse(BaseModel):
+    items: List[HeritageMediaResponseWithUrl]
+    total: int
+    skip: int
+    limit: int
+    has_next: bool

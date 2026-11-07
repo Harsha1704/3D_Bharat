@@ -1,7 +1,11 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.heritage_source import HeritageSourceResponse
+from app.schemas.heritage_media import HeritageMediaResponseWithUrl
+from app.schemas.heritage_3d_asset import Heritage3DAssetResponseWithUrl
 
 
 # =========================================================
@@ -108,13 +112,9 @@ class HeritageSiteNearbyResponse(HeritageSiteResponse):
 
 class HeritageSiteSearchResponse(BaseModel):
     items: List[HeritageSiteResponse]
-
     total: int
-
     skip: int
-
     limit: int
-
     has_next: bool
 
 
@@ -123,3 +123,71 @@ class HeritageSiteRecommendationResponse(HeritageSiteResponse):
     semantic_score: Optional[float] = None
     recommendation_score: float
     recommendation_reasons: List[str]
+
+
+# =========================================================
+# PHASE 5: COMPREHENSIVE SITE DETAILS RESPONSE
+# =========================================================
+
+class HeritageConnectionDetailItem(BaseModel):
+    connection_id: int
+    connected_site_id: int
+    connected_site_name: str
+    relationship_type: str
+    confidence_score: Optional[float] = None
+    description: Optional[str] = None
+    direction: str  # "outgoing" or "incoming"
+
+
+class HeritageSiteDetailResponse(HeritageSiteResponse):
+    sources: List[HeritageSourceResponse] = Field(default_factory=list)
+    media: List[HeritageMediaResponseWithUrl] = Field(default_factory=list)
+    assets_3d: List[Heritage3DAssetResponseWithUrl] = Field(default_factory=list)
+    connections: List[HeritageConnectionDetailItem] = Field(default_factory=list)
+    stats: Dict[str, int] = Field(default_factory=dict)
+
+
+# =========================================================
+# PHASE 5: RELATED HERITAGE SITES DISCOVERY
+# =========================================================
+
+class DocumentedConnectionItem(BaseModel):
+    connection_id: int
+    connected_site_id: int
+    connected_site_name: str
+    relationship_type: str
+    confidence_score: Optional[float] = None
+    description: Optional[str] = None
+    source: str = "DOCUMENTED_ARCHIVAL_RECORD"
+
+
+class StructuredRelationItem(BaseModel):
+    site_id: int
+    name: str
+    category: str
+    state: str
+    period: Optional[str] = None
+    architecture: Optional[str] = None
+    distance_km: Optional[float] = None
+    shared_attributes: List[str] = Field(default_factory=list)
+
+
+class SemanticSuggestionItem(BaseModel):
+    site_id: int
+    name: str
+    state: str
+    category: str
+    recommendation_score: float
+    reasons: List[str] = Field(default_factory=list)
+    disclaimer: str = (
+        "AI-generated exploratory recommendation based on semantic similarity of architectural "
+        "descriptions and historical context. Not primary archival evidence."
+    )
+
+
+class HeritageRelatedSitesResponse(BaseModel):
+    site_id: int
+    site_name: str
+    documented_connections: List[DocumentedConnectionItem] = Field(default_factory=list)
+    structured_relations: List[StructuredRelationItem] = Field(default_factory=list)
+    semantic_suggestions: List[SemanticSuggestionItem] = Field(default_factory=list)

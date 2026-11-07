@@ -54,3 +54,15 @@ class Heritage3DAssetResponse(Heritage3DAssetBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class Heritage3DAssetResponseWithUrl(Heritage3DAssetResponse):
+    file_url: str
+
+
+class Heritage3DAssetDiscoveryResponse(BaseModel):
+    items: List[Heritage3DAssetResponseWithUrl]
+    total: int
+    skip: int
+    limit: int
+    has_next: bool

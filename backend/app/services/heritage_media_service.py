@@ -1,5 +1,5 @@
 from typing import List, Optional
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.models.heritage_site import HeritageSite
@@ -69,6 +69,32 @@ def list_heritage_media_by_site(
 
     stmt = stmt.offset(skip).limit(limit).order_by(HeritageMedia.id)
     return list(db.execute(stmt).scalars().all())
+
+
+def list_all_heritage_media(
+    db: Session,
+    site_id: Optional[int] = None,
+    media_type: Optional[str] = None,
+    verification_status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> tuple[List[HeritageMedia], int]:
+    stmt = select(HeritageMedia)
+    count_stmt = select(func.count(HeritageMedia.id))
+
+    if site_id is not None:
+        stmt = stmt.where(HeritageMedia.heritage_site_id == site_id)
+        count_stmt = count_stmt.where(HeritageMedia.heritage_site_id == site_id)
+    if media_type:
+        stmt = stmt.where(HeritageMedia.media_type.ilike(f"%{media_type}%"))
+        count_stmt = count_stmt.where(HeritageMedia.media_type.ilike(f"%{media_type}%"))
+    if verification_status:
+        stmt = stmt.where(HeritageMedia.verification_status.ilike(f"%{verification_status}%"))
+        count_stmt = count_stmt.where(HeritageMedia.verification_status.ilike(f"%{verification_status}%"))
+
+    total = db.execute(count_stmt).scalar_one()
+    items = list(db.execute(stmt.offset(skip).limit(limit).order_by(HeritageMedia.id)).scalars().all())
+    return items, total
 
 
 def update_heritage_media(

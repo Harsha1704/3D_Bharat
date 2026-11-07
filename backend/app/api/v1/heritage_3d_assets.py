@@ -18,11 +18,14 @@ from app.schemas.heritage_3d_asset import (
     Heritage3DAssetCreate,
     Heritage3DAssetUpdate,
     Heritage3DAssetResponse,
+    Heritage3DAssetResponseWithUrl,
+    Heritage3DAssetDiscoveryResponse,
 )
 from app.services.heritage_3d_service import (
     create_heritage_3d_asset,
     get_heritage_3d_asset,
     list_heritage_3d_assets_by_site,
+    list_all_heritage_3d_assets,
     update_heritage_3d_asset,
     delete_heritage_3d_asset,
     add_companion_file_to_asset,
@@ -100,17 +103,16 @@ def upload_3d_asset_file(
         title=title,
         description=description,
         asset_format=asset_format.upper(),
+        units=units,
+        coordinate_system=coordinate_system,
         storage_key=storage_key,
         original_filename=sanitized_name,
         mime_type=content_type,
         file_size_bytes=file_size,
         checksum_sha256=checksum,
-        units=units,
-        coordinate_system=coordinate_system,
         attribution=attribution,
         license=license,
         source_id=source_id,
-        processing_status="READY",
     )
 
     try:
@@ -159,6 +161,7 @@ def upload_companion_file(
 
 @router.get(
     "/heritage-3d-assets/{asset_id}/verify",
+    summary="Verify companion file integrity for a 3D asset",
 )
 def verify_asset_companion_integrity(
     asset_id: int,
@@ -176,6 +179,7 @@ def verify_asset_companion_integrity(
 @router.get(
     "/heritage-sites/{site_id}/3d-assets",
     response_model=List[Heritage3DAssetResponse],
+    summary="List 3D preservation models for a heritage site",
 )
 def list_3d_assets_for_site(
     site_id: int,
@@ -198,9 +202,55 @@ def list_3d_assets_for_site(
     )
 
 
+# =========================================================
+# GLOBAL 3D ASSET DISCOVERY (PHASE 5)
+# GET /api/v1/heritage-3d-assets
+# =========================================================
+
+@router.get(
+    "/heritage-3d-assets",
+    response_model=Heritage3DAssetDiscoveryResponse,
+    summary="Global discovery of 3D digital preservation models and reconstructions",
+)
+def discover_heritage_3d_assets(
+    site_id: Optional[int] = Query(default=None, description="Optional heritage site filter"),
+    asset_format: Optional[str] = Query(default=None, description="Filter by format (e.g. GLB, GLTF, OBJ, PLY, GAUSSIAN_SPLAT)"),
+    processing_status: Optional[str] = Query(default=None, description="Filter by processing status (e.g. READY, PROCESSING)"),
+    verification_status: Optional[str] = Query(default=None, description="Filter by verification status"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    items, total = list_all_heritage_3d_assets(
+        db=db,
+        site_id=site_id,
+        asset_format=asset_format,
+        processing_status=processing_status,
+        verification_status=verification_status,
+        skip=skip,
+        limit=limit,
+    )
+
+    formatted_items = []
+    for item in items:
+        item_dict = {c.name: getattr(item, c.name) for c in item.__table__.columns}
+        item_dict["file_url"] = f"/api/v1/heritage-3d-assets/{item.id}/file"
+        formatted_items.append(Heritage3DAssetResponseWithUrl(**item_dict))
+
+    has_next = (skip + len(items)) < total
+    return Heritage3DAssetDiscoveryResponse(
+        items=formatted_items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_next=has_next,
+    )
+
+
 @router.get(
     "/heritage-3d-assets/{asset_id}",
     response_model=Heritage3DAssetResponse,
+    summary="Get single 3D asset metadata record",
 )
 def get_3d_asset_by_id(
     asset_id: int,
@@ -217,6 +267,7 @@ def get_3d_asset_by_id(
 
 @router.get(
     "/heritage-3d-assets/{asset_id}/file",
+    summary="Stream 3D asset file safely from storage",
 )
 def download_3d_asset_file(
     asset_id: int,
@@ -246,6 +297,7 @@ def download_3d_asset_file(
     "/heritage-3d-assets/{asset_id}",
     response_model=Heritage3DAssetResponse,
     dependencies=[Depends(verify_write_access)],
+    summary="Update 3D asset metadata",
 )
 def update_3d_asset_by_id(
     asset_id: int,
@@ -268,6 +320,7 @@ def update_3d_asset_by_id(
     "/heritage-3d-assets/{asset_id}",
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(verify_write_access)],
+    summary="Delete 3D asset and remove all model and companion files from storage",
 )
 def delete_3d_asset_by_id(
     asset_id: int,

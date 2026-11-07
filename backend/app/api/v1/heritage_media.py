@@ -18,11 +18,14 @@ from app.schemas.heritage_media import (
     HeritageMediaCreate,
     HeritageMediaUpdate,
     HeritageMediaResponse,
+    HeritageMediaDiscoveryResponse,
+    HeritageMediaResponseWithUrl,
 )
 from app.services.heritage_media_service import (
     create_heritage_media,
     get_heritage_media,
     list_heritage_media_by_site,
+    list_all_heritage_media,
     update_heritage_media,
     delete_heritage_media,
 )
@@ -122,6 +125,7 @@ def upload_media_file(
 @router.get(
     "/heritage-sites/{site_id}/media",
     response_model=List[HeritageMediaResponse],
+    summary="List preservation media linked to a heritage site",
 )
 def list_media_for_site(
     site_id: int,
@@ -144,9 +148,53 @@ def list_media_for_site(
     )
 
 
+# =========================================================
+# GLOBAL MEDIA DISCOVERY (PHASE 5)
+# GET /api/v1/heritage-media
+# =========================================================
+
+@router.get(
+    "/heritage-media",
+    response_model=HeritageMediaDiscoveryResponse,
+    summary="Global discovery of preservation media assets across all heritage sites",
+)
+def discover_heritage_media(
+    site_id: Optional[int] = Query(default=None, description="Optional heritage site filter"),
+    media_type: Optional[str] = Query(default=None, description="Filter by media type (e.g. IMAGE, AUDIO, VIDEO)"),
+    verification_status: Optional[str] = Query(default=None, description="Filter by status (e.g. VERIFIED, ARCHIVAL)"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    items, total = list_all_heritage_media(
+        db=db,
+        site_id=site_id,
+        media_type=media_type,
+        verification_status=verification_status,
+        skip=skip,
+        limit=limit,
+    )
+
+    formatted_items = []
+    for item in items:
+        item_dict = {c.name: getattr(item, c.name) for c in item.__table__.columns}
+        item_dict["file_url"] = f"/api/v1/heritage-media/{item.id}/file"
+        formatted_items.append(HeritageMediaResponseWithUrl(**item_dict))
+
+    has_next = (skip + len(items)) < total
+    return HeritageMediaDiscoveryResponse(
+        items=formatted_items,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_next=has_next,
+    )
+
+
 @router.get(
     "/heritage-media/{media_id}",
     response_model=HeritageMediaResponse,
+    summary="Get single heritage media metadata record",
 )
 def get_media_by_id(
     media_id: int,
@@ -163,6 +211,7 @@ def get_media_by_id(
 
 @router.get(
     "/heritage-media/{media_id}/file",
+    summary="Stream verified media file safely from storage",
 )
 def download_media_file(
     media_id: int,
@@ -192,6 +241,7 @@ def download_media_file(
     "/heritage-media/{media_id}",
     response_model=HeritageMediaResponse,
     dependencies=[Depends(verify_write_access)],
+    summary="Update heritage media metadata",
 )
 def update_media_by_id(
     media_id: int,
@@ -214,6 +264,7 @@ def update_media_by_id(
     "/heritage-media/{media_id}",
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(verify_write_access)],
+    summary="Delete heritage media asset and remove file from storage",
 )
 def delete_media_by_id(
     media_id: int,

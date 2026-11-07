@@ -9,9 +9,23 @@ from app.models.heritage_site import HeritageSite
 # EMBEDDING MODEL
 # =========================================================
 
+import numpy as np
+
 _model = SentenceTransformer(
     "all-MiniLM-L6-v2"
 )
+
+# In-memory embedding cache keyed by (site_id, updated_at)
+_embedding_cache: dict[tuple[int, str], np.ndarray] = {}
+
+def get_or_create_site_embedding(site: HeritageSite) -> np.ndarray:
+    cache_key = (site.id, str(site.updated_at))
+    if cache_key in _embedding_cache:
+        return _embedding_cache[cache_key]
+    profile = build_heritage_profile(site)
+    emb = _model.encode(profile, normalize_embeddings=True)
+    _embedding_cache[cache_key] = np.asarray(emb)
+    return _embedding_cache[cache_key]
 
 
 # =========================================================
@@ -355,28 +369,16 @@ def get_semantic_recommendations(
     # SOURCE EMBEDDING
     # -----------------------------------------------------
 
-    source_profile = build_heritage_profile(
-        source_site
-    )
-
-    source_embedding = _model.encode(
-        source_profile,
-        normalize_embeddings=True,
-    )
+    source_embedding = get_or_create_site_embedding(source_site)
 
     # -----------------------------------------------------
-    # CANDIDATE EMBEDDINGS
+    # CANDIDATE EMBEDDINGS (IN-MEMORY CACHED)
     # -----------------------------------------------------
 
-    candidate_profiles = [
-        build_heritage_profile(site)
+    candidate_embeddings = np.array([
+        get_or_create_site_embedding(site)
         for site in candidates
-    ]
-
-    candidate_embeddings = _model.encode(
-        candidate_profiles,
-        normalize_embeddings=True,
-    )
+    ])
 
     # -----------------------------------------------------
     # COSINE SIMILARITY

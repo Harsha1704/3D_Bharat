@@ -1,7 +1,13 @@
+import math
+from typing import Optional, List
 from sqlalchemy.orm import Session
-from geoalchemy2.elements import WKTElement
 from sqlalchemy import select, func, or_, asc, desc
+
 from app.models.heritage_site import HeritageSite
+from app.models.heritage_source import HeritageSource
+from app.models.heritage_media import HeritageMedia
+from app.models.heritage_3d_asset import Heritage3DAsset
+from app.models.heritage_connection import HeritageConnection
 
 from app.schemas.heritage_site import (
     HeritageSiteCreate,
@@ -93,6 +99,8 @@ def search_heritage_sites(
     city: str | None = None,
     category: list[str] | None = None,
     period: str | None = None,
+    architecture: str | None = None,
+    dynasty: str | None = None,
     tag: str | None = None,
     sort_by: str = "id",
     sort_order: str = "asc",
@@ -112,6 +120,7 @@ def search_heritage_sites(
         filters.append(
             or_(
                 # Basic information
+                HeritageSite.external_id.ilike(search_pattern),
                 HeritageSite.name.ilike(search_pattern),
                 HeritageSite.description.ilike(search_pattern),
                 HeritageSite.significance.ilike(search_pattern),
@@ -209,6 +218,35 @@ def search_heritage_sites(
         )
 
     # =====================================================
+    # ARCHITECTURAL STYLE
+    # =====================================================
+
+    if architecture:
+        filters.append(
+            HeritageSite.architecture.ilike(
+                f"%{architecture}%"
+            )
+        )
+
+    # =====================================================
+    # DYNASTY / ASSOCIATED PEOPLE
+    # =====================================================
+
+    if dynasty:
+        filters.append(
+            or_(
+                func.lower(
+                    func.array_to_string(
+                        HeritageSite.associated_people,
+                        " "
+                    )
+                ).like(f"%{dynasty.lower()}%"),
+                HeritageSite.period.ilike(f"%{dynasty}%"),
+                HeritageSite.description.ilike(f"%{dynasty}%"),
+            )
+        )
+
+    # =====================================================
     # TAG
     # =====================================================
 
@@ -250,8 +288,10 @@ def search_heritage_sites(
         "name": HeritageSite.name,
         "state": HeritageSite.state,
         "city": HeritageSite.city,
+        "district": HeritageSite.district,
         "category": HeritageSite.category,
         "period": HeritageSite.period,
+        "created_at": HeritageSite.created_at,
     }
 
     sort_column = sort_columns.get(
@@ -301,6 +341,56 @@ def search_heritage_sites(
         "limit": limit,
         "has_next": has_next,
     }
+
+
+# =========================================================
+# BOUNDING-BOX SEARCH
+# =========================================================
+
+def get_heritage_sites_in_bbox(
+    db: Session,
+    min_lat: float,
+    min_lon: float,
+    max_lat: float,
+    max_lon: float,
+    category: list[str] | None = None,
+    state: str | None = None,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[HeritageSite]:
+    """
+    Search heritage sites falling within the specified bounding box coordinates.
+    """
+    filters = [
+        HeritageSite.latitude.is_not(None),
+        HeritageSite.longitude.is_not(None),
+        HeritageSite.latitude >= min_lat,
+        HeritageSite.latitude <= max_lat,
+        HeritageSite.longitude >= min_lon,
+        HeritageSite.longitude <= max_lon,
+    ]
+
+    if state:
+        filters.append(HeritageSite.state.ilike(f"%{state}%"))
+
+    if category:
+        category_filters = [
+            HeritageSite.category.ilike(f"%{c}%")
+            for c in category
+        ]
+        filters.append(or_(*category_filters))
+
+    stmt = (
+        select(HeritageSite)
+        .where(*filters)
+        .order_by(HeritageSite.id)
+        .offset(skip)
+        .limit(limit)
+    )
+
+    return list(db.execute(stmt).scalars().all())
+
+
 # =========================================================
 # UPDATE
 # =========================================================
@@ -453,9 +543,287 @@ def get_nearby_heritage_sites(
 
     return nearby_sites
 
+
 # =========================================================
-# HERITAGE INTELLIGENCE / RECOMMENDATIONS
+# COMPREHENSIVE SITE DETAILS
 # =========================================================
+
+def get_comprehensive_site_details(
+    db: Session,
+    site_id: int,
+) -> dict | None:
+    """
+    Returns complete site details including sources, preservation media, 3D assets,
+    and connections using eager single-session batch queries (0 N+1 issues).
+    Never exposes raw storage filesystem paths.
+    """
+    site = get_heritage_site(db, site_id)
+    if site is None:
+        return None
+
+    # Eager batch queries in the active session
+    sources_stmt = select(HeritageSource).where(HeritageSource.heritage_site_id == site_id).order_by(HeritageSource.id)
+    sources = list(db.execute(sources_stmt).scalars().all())
+
+    media_stmt = select(HeritageMedia).where(HeritageMedia.heritage_site_id == site_id).order_by(HeritageMedia.id)
+    media_items = list(db.execute(media_stmt).scalars().all())
+
+    assets_stmt = select(Heritage3DAsset).where(Heritage3DAsset.heritage_site_id == site_id).order_by(Heritage3DAsset.id)
+    asset_items = list(db.execute(assets_stmt).scalars().all())
+
+    conn_stmt = select(HeritageConnection).where(
+        or_(
+            HeritageConnection.source_site_id == site_id,
+            HeritageConnection.target_site_id == site_id,
+        )
+    ).order_by(HeritageConnection.id)
+    connections = list(db.execute(conn_stmt).scalars().all())
+
+    # Resolve connected site names in single query
+    connected_site_ids = {
+        c.target_site_id if c.source_site_id == site_id else c.source_site_id
+        for c in connections
+    }
+    name_map = {}
+    if connected_site_ids:
+        names_query = select(HeritageSite.id, HeritageSite.name).where(HeritageSite.id.in_(connected_site_ids))
+        name_map = {row[0]: row[1] for row in db.execute(names_query).all()}
+
+    formatted_connections = []
+    for c in connections:
+        other_id = c.target_site_id if c.source_site_id == site_id else c.source_site_id
+        direction = "outgoing" if c.source_site_id == site_id else "incoming"
+        formatted_connections.append({
+            "connection_id": c.id,
+            "connected_site_id": other_id,
+            "connected_site_name": name_map.get(other_id, f"Site #{other_id}"),
+            "relationship_type": c.relationship_type,
+            "confidence_score": c.confidence_score,
+            "description": c.description,
+            "direction": direction,
+        })
+
+    formatted_media = []
+    for m in media_items:
+        media_dict = {
+            "id": m.id,
+            "heritage_site_id": m.heritage_site_id,
+            "title": m.title,
+            "description": m.description,
+            "media_type": m.media_type,
+            "attribution": m.attribution,
+            "license": m.license,
+            "capture_date": m.capture_date,
+            "verification_status": m.verification_status,
+            "source_id": m.source_id,
+            "storage_key": m.storage_key,
+            "original_filename": m.original_filename,
+            "mime_type": m.mime_type,
+            "file_size_bytes": m.file_size_bytes,
+            "checksum_sha256": m.checksum_sha256,
+            "created_at": m.created_at,
+            "updated_at": m.updated_at,
+            "file_url": f"/api/v1/heritage-media/{m.id}/file",
+        }
+        formatted_media.append(media_dict)
+
+    formatted_assets = []
+    for a in asset_items:
+        asset_dict = {
+            "id": a.id,
+            "heritage_site_id": a.heritage_site_id,
+            "title": a.title,
+            "description": a.description,
+            "asset_format": a.asset_format,
+            "units": a.units,
+            "coordinate_system": a.coordinate_system,
+            "companion_files": a.companion_files,
+            "bounding_box": a.bounding_box,
+            "attribution": a.attribution,
+            "license": a.license,
+            "processing_status": a.processing_status,
+            "verification_status": a.verification_status,
+            "source_id": a.source_id,
+            "storage_key": a.storage_key,
+            "original_filename": a.original_filename,
+            "mime_type": a.mime_type,
+            "file_size_bytes": a.file_size_bytes,
+            "checksum_sha256": a.checksum_sha256,
+            "created_at": a.created_at,
+            "updated_at": a.updated_at,
+            "file_url": f"/api/v1/heritage-3d-assets/{a.id}/file",
+        }
+        formatted_assets.append(asset_dict)
+
+    return {
+        "id": site.id,
+        "external_id": site.external_id,
+        "name": site.name,
+        "state": site.state,
+        "district": site.district,
+        "city": site.city,
+        "category": site.category,
+        "period": site.period,
+        "description": site.description,
+        "significance": site.significance,
+        "architecture": site.architecture,
+        "latitude": site.latitude,
+        "longitude": site.longitude,
+        "tags": site.tags,
+        "historical_events": site.historical_events,
+        "associated_people": site.associated_people,
+        "traditions": site.traditions,
+        "created_at": site.created_at,
+        "updated_at": site.updated_at,
+        "sources": sources,
+        "media": formatted_media,
+        "assets_3d": formatted_assets,
+        "connections": formatted_connections,
+        "stats": {
+            "total_sources": len(sources),
+            "total_media": len(formatted_media),
+            "total_3d_assets": len(formatted_assets),
+            "total_connections": len(formatted_connections),
+        },
+    }
+
+
+# =========================================================
+# RELATED HERITAGE DISCOVERY
+# =========================================================
+
+def _compute_haversine_distance(
+    lat1: Optional[float],
+    lon1: Optional[float],
+    lat2: Optional[float],
+    lon2: Optional[float],
+) -> Optional[float]:
+    if None in (lat1, lon1, lat2, lon2):
+        return None
+    r = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
+    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def get_related_heritage_sites(
+    db: Session,
+    site_id: int,
+    limit: int = 10,
+) -> dict | None:
+    """
+    Discovers related heritage sites by clearly separating:
+    1. Documented Connections (archival relationships in the database)
+    2. Structured Relations (shared category, period, architecture, or proximity)
+    3. Semantic Suggestions (AI recommendation engine with clear exploratory disclaimer)
+    """
+    site = get_heritage_site(db, site_id)
+    if site is None:
+        return None
+
+    # 1. Documented Connections
+    conn_stmt = select(HeritageConnection).where(
+        or_(
+            HeritageConnection.source_site_id == site_id,
+            HeritageConnection.target_site_id == site_id,
+        )
+    ).order_by(HeritageConnection.id)
+    connections = list(db.execute(conn_stmt).scalars().all())
+
+    connected_peer_ids = {
+        c.target_site_id if c.source_site_id == site_id else c.source_site_id
+        for c in connections
+    }
+    name_map = {}
+    if connected_peer_ids:
+        names_query = select(HeritageSite.id, HeritageSite.name).where(HeritageSite.id.in_(connected_peer_ids))
+        name_map = {row[0]: row[1] for row in db.execute(names_query).all()}
+
+    documented = []
+    for c in connections:
+        peer_id = c.target_site_id if c.source_site_id == site_id else c.source_site_id
+        documented.append({
+            "connection_id": c.id,
+            "connected_site_id": peer_id,
+            "connected_site_name": name_map.get(peer_id, f"Site #{peer_id}"),
+            "relationship_type": c.relationship_type,
+            "confidence_score": c.confidence_score,
+            "description": c.description,
+            "source": "DOCUMENTED_ARCHIVAL_RECORD",
+        })
+
+    # 2. Structured Relations
+    candidates = list(
+        db.execute(select(HeritageSite).where(HeritageSite.id != site_id)).scalars().all()
+    )
+
+    structured_relations = []
+    for cand in candidates:
+        if cand.id in connected_peer_ids:
+            continue
+
+        shared = []
+        if site.category and cand.category and site.category.strip().lower() == cand.category.strip().lower():
+            shared.append(f"Shared category: {cand.category}")
+        if site.period and cand.period and (site.period.lower() in cand.period.lower() or cand.period.lower() in site.period.lower()):
+            shared.append(f"Shared period: {cand.period}")
+        if site.architecture and cand.architecture and (site.architecture.lower() in cand.architecture.lower() or cand.architecture.lower() in site.architecture.lower()):
+            shared.append(f"Shared architectural style: {cand.architecture}")
+        if site.state and cand.state and site.state.strip().lower() == cand.state.strip().lower():
+            shared.append(f"Same state: {cand.state}")
+
+        dist = _compute_haversine_distance(site.latitude, site.longitude, cand.latitude, cand.longitude)
+        if dist is not None and dist <= 150.0:
+            shared.append(f"Proximity: {round(dist, 1)} km")
+
+        if shared:
+            structured_relations.append({
+                "site_id": cand.id,
+                "name": cand.name,
+                "category": cand.category,
+                "state": cand.state,
+                "period": cand.period,
+                "architecture": cand.architecture,
+                "distance_km": round(dist, 1) if dist is not None else None,
+                "shared_attributes": shared,
+                "_score": len(shared) + (1.0 / (1.0 + (dist or 1000.0) / 100.0)),
+            })
+
+    structured_relations.sort(key=lambda x: x["_score"], reverse=True)
+    for item in structured_relations:
+        item.pop("_score", None)
+    structured_relations = structured_relations[:limit]
+
+    # 3. Semantic Suggestions
+    semantic_raw = get_heritage_recommendations(db, site_id, limit=limit)
+    semantic_suggestions = []
+    if semantic_raw:
+        for item in semantic_raw:
+            s = item["site"]
+            semantic_suggestions.append({
+                "site_id": s.id,
+                "name": s.name,
+                "state": s.state,
+                "category": s.category,
+                "recommendation_score": item.get("recommendation_score", 0.0),
+                "reasons": item.get("recommendation_reasons", []),
+                "disclaimer": (
+                    "AI-generated exploratory recommendation based on semantic similarity of "
+                    "architectural descriptions and historical context. Not primary archival evidence."
+                ),
+            })
+
+    return {
+        "site_id": site.id,
+        "site_name": site.name,
+        "documented_connections": documented,
+        "structured_relations": structured_relations,
+        "semantic_suggestions": semantic_suggestions,
+    }
+
+
 # =========================================================
 # HYBRID HERITAGE INTELLIGENCE
 # =========================================================

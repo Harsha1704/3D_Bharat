@@ -9,7 +9,8 @@
 - **Digital Preservation Media:** Archival photographs, historical documents, audio guides, and documentary footage linked to heritage sites with SHA-256 verification.
 - **3D Digital Assets:** GLB, glTF, OBJ, PLY point clouds, and Gaussian Splat preservation models with coordinate reference systems and companion file tracking.
 - **Historical Provenance & Sources:** Strict demarcation between verified historical facts, community submissions, and AI-derived suggestions.
-- **Geospatial & Semantic Intelligence:** Sub-millisecond Haversine proximity queries and hybrid category/period/vector recommendations.
+- **Complete Heritage Discovery APIs:** Geographical bounding-box viewports, eager-loaded comprehensive monument dossiers, related-site graph & structured discovery, and multi-field text search.
+- **Geospatial & Semantic Intelligence:** Sub-millisecond Haversine proximity queries and hybrid category/period/vector recommendations with in-memory embedding caching.
 
 ## Tech Stack
 
@@ -34,7 +35,7 @@
 │   │   ├── schemas/              # Pydantic v2 validation models
 │   │   └── services/             # Domain logic, storage abstraction, graph engine
 │   ├── storage/uploads/          # Local asset preservation storage (gitignored)
-│   └── tests/                    # Automated pytest test suites (49 tests)
+│   └── tests/                    # Automated pytest test suites (107 tests)
 └── README.md
 ```
 
@@ -91,16 +92,23 @@ Visit `http://localhost:5173` to explore the interactive application.
 
 | Domain | Method & Endpoint | Description |
 | --- | --- | --- |
-| **Sites** | `GET /heritage-sites` | Paginated listing with state/category filters |
-| **Sites** | `GET /heritage-sites/nearby` | Proximity search with coordinates & radius |
+| **Discovery** | `GET /heritage-sites/search` | Multi-field search (name, dynasty, architecture, state, tags) with stable sorting & pagination |
+| **Discovery** | `GET /heritage-sites/bbox` | Bounding-box viewport search with coordinate validation (`min_lat`, `min_lon`, `max_lat`, `max_lon`) |
+| **Discovery** | `GET /heritage-sites/nearby` | Geodesic radius search using spherical distance calculation |
+| **Discovery** | `GET /heritage-sites/{id}/details` | Comprehensive eager-loaded site dossier (sources, media with safe URLs, 3D assets, connections) |
+| **Discovery** | `GET /heritage-sites/{id}/related` | Related heritage distinguishing documented archival links, structured relations, and AI suggestions |
+| **Sites** | `GET /heritage-sites` | Paginated listing with basic pagination |
+| **Sites** | `GET /heritage-sites/{id}` | Single heritage site by ID |
 | **Sites** | `GET /heritage-sites/{id}/recommendations` | Hybrid semantic & structural recommendations |
 | **Connections** | `GET /heritage-connections/site/{id}` | Connections linking a heritage site |
 | **Graph** | `GET /heritage-graph` | Complete frontend-ready graph (nodes & edges) |
 | **Sources** | `POST /heritage-sites/{id}/sources` | Register academic citation or archival source |
 | **Sources** | `GET /heritage-sites/{id}/sources` | List sources and provenance citations |
+| **Media** | `GET /heritage-media` | Global discovery of preservation media assets across all heritage sites |
 | **Media** | `POST /heritage-sites/{id}/media` | Register media metadata |
 | **Media** | `POST /heritage-sites/{id}/media/upload` | Multipart file upload with SHA-256 verification |
 | **Media** | `GET /heritage-media/{id}/file` | Stream media asset safely |
+| **3D Assets** | `GET /heritage-3d-assets` | Global discovery of 3D models and digital reconstructions across sites |
 | **3D Assets** | `POST /heritage-sites/{id}/3d-assets` | Register 3D reconstruction metadata |
 | **3D Assets** | `POST /heritage-sites/{id}/3d-assets/upload` | Multipart upload for GLB, glTF, OBJ, PLY, Splats |
 | **3D Assets** | `GET /heritage-3d-assets/{id}/file` | Stream 3D model asset |
@@ -127,21 +135,16 @@ Run the full automated backend test suite:
 
 ```cmd
 cd backend
-set PYTHONPATH=.
-.venv\Scripts\python.exe -m pytest -v
+.venv\Scripts\pytest.exe backend/tests -v
 ```
 
-Test coverage includes:
+Test coverage includes 107 passing tests:
+- Bounding-box geographical viewport search and boundary coordinate validations
+- Comprehensive site details eager loading (sources, media, 3D assets, connections) without N+1 queries
+- Clear demarcation between documented archival links, structured relations, and exploratory AI suggestions
+- Global discovery endpoints for preservation media and 3D digital reconstructions with safe file URLs
 - Unit tests for storage abstraction, content sniffing, and path traversal guards
 - CRUD, pagination, and error responses (400, 404, 409, 422) for sources, media, and 3D assets
 - Mathematical edge-case validation for Haversine geodesic calculations
 - Database CHECK constraints, transaction rollbacks, and session lifecycle
 - Regression tests for existing heritage sites, connections, and knowledge graph
-
-Frontend production verification:
-
-```cmd
-cd frontend
-npm run build
-npm run lint
-```

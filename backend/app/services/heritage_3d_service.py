@@ -1,6 +1,6 @@
 import re
 from typing import BinaryIO, Dict, List, Optional, Tuple
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.models.heritage_site import HeritageSite
@@ -65,6 +65,36 @@ def list_heritage_3d_assets_by_site(
 
     stmt = stmt.offset(skip).limit(limit).order_by(Heritage3DAsset.id)
     return list(db.execute(stmt).scalars().all())
+
+
+def list_all_heritage_3d_assets(
+    db: Session,
+    site_id: Optional[int] = None,
+    asset_format: Optional[str] = None,
+    processing_status: Optional[str] = None,
+    verification_status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> tuple[List[Heritage3DAsset], int]:
+    stmt = select(Heritage3DAsset)
+    count_stmt = select(func.count(Heritage3DAsset.id))
+
+    if site_id is not None:
+        stmt = stmt.where(Heritage3DAsset.heritage_site_id == site_id)
+        count_stmt = count_stmt.where(Heritage3DAsset.heritage_site_id == site_id)
+    if asset_format:
+        stmt = stmt.where(Heritage3DAsset.asset_format.ilike(f"%{asset_format}%"))
+        count_stmt = count_stmt.where(Heritage3DAsset.asset_format.ilike(f"%{asset_format}%"))
+    if processing_status:
+        stmt = stmt.where(Heritage3DAsset.processing_status.ilike(f"%{processing_status}%"))
+        count_stmt = count_stmt.where(Heritage3DAsset.processing_status.ilike(f"%{processing_status}%"))
+    if verification_status:
+        stmt = stmt.where(Heritage3DAsset.verification_status.ilike(f"%{verification_status}%"))
+        count_stmt = count_stmt.where(Heritage3DAsset.verification_status.ilike(f"%{verification_status}%"))
+
+    total = db.execute(count_stmt).scalar_one()
+    items = list(db.execute(stmt.offset(skip).limit(limit).order_by(Heritage3DAsset.id)).scalars().all())
+    return items, total
 
 
 def update_heritage_3d_asset(
