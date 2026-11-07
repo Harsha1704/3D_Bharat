@@ -294,49 +294,85 @@ def retrieve_archival_sources_evidence(
 def retrieve_semantic_chunks_evidence(
     db: Session,
     query: str,
-    limit: int = 4,
+    target_site_ids: Optional[List[int]] = None,
+    limit: int = 5,
 ) -> List[EvidenceItem]:
     """
-    Semantic vector search across indexed AI research document chunks using cosine similarity.
+    Hybrid semantic vector + keyword search across indexed AI research document chunks.
+    Combines cosine similarity of 384-d embeddings with keyword/phrase matching.
     """
     items: List[EvidenceItem] = []
-    if not is_embedding_ready():
-        return items
+    keywords = extract_keywords(query)
+    target_ids_set = set(target_site_ids or [])
 
-    query_vec = generate_embedding(query)
-    if not query_vec:
-        return items
-
+    # Check if we have documents and chunks
     stmt = (
-        select(AIChunkEmbedding, AIDocumentChunk, AIDocument)
-        .join(AIDocumentChunk, AIChunkEmbedding.chunk_id == AIDocumentChunk.id)
+        select(AIDocumentChunk, AIDocument)
         .join(AIDocument, AIDocumentChunk.document_id == AIDocument.id)
     )
-    results = db.execute(stmt).all()
-    if not results:
+    doc_chunk_rows = db.execute(stmt).all()
+    if not doc_chunk_rows:
         return items
 
+    query_vec = generate_embedding(query) if is_embedding_ready() else None
+
+    # Load chunk embeddings into map: chunk_id -> embedding_json
+    emb_stmt = select(AIChunkEmbedding)
+    emb_rows = db.execute(emb_stmt).scalars().all()
+    emb_map = {e.chunk_id: e.embedding_json for e in emb_rows}
+
+    query_lower = query.lower()
     scored_chunks = []
-    for emb_rec, chunk_rec, doc_rec in results:
-        chunk_vec = emb_rec.embedding_json
-        sim = cosine_similarity(query_vec, chunk_vec)
-        if sim >= 0.40:  # Confident semantic similarity threshold
-            scored_chunks.append((sim, chunk_rec, doc_rec))
+
+    for chunk_rec, doc_rec in doc_chunk_rows:
+        text_lower = chunk_rec.chunk_text.lower()
+        heading_lower = (chunk_rec.section_heading or "").lower()
+
+        # 1. Compute keyword score
+        kw_hits = 0
+        for kw in keywords:
+            if kw in text_lower or kw in heading_lower:
+                kw_hits += 1
+        kw_score = (kw_hits / max(1, len(keywords))) if keywords else 0.0
+
+        # Exact phrase bonus
+        if len(query_lower) > 8 and (query_lower in text_lower or query_lower in heading_lower):
+            kw_score += 0.3
+
+        # 2. Compute vector similarity if embedding exists
+        vec_sim = 0.0
+        if query_vec and chunk_rec.id in emb_map:
+            vec_sim = cosine_similarity(query_vec, emb_map[chunk_rec.id])
+
+        # 3. Combine scores
+        if query_vec:
+            # Hybrid weighting
+            final_score = (0.65 * vec_sim) + (0.35 * min(1.0, kw_score))
+        else:
+            final_score = min(1.0, kw_score)
+
+        # Contextual site boost if linked to a monument identified in this query
+        if doc_rec.heritage_site_id and doc_rec.heritage_site_id in target_ids_set:
+            final_score += 0.15
+
+        # Include if confident match
+        if final_score >= 0.25 or (vec_sim >= 0.38) or (kw_hits >= 2):
+            scored_chunks.append((final_score, chunk_rec, doc_rec))
 
     scored_chunks.sort(key=lambda x: x[0], reverse=True)
 
-    for sim, chunk_rec, doc_rec in scored_chunks[:limit]:
+    for score, chunk_rec, doc_rec in scored_chunks[:limit]:
         items.append(
             EvidenceItem(
                 citation_id="",
-                title=f"{doc_rec.title} (Section: {chunk_rec.section_heading or 'Excerpt'})",
+                title=f"{doc_rec.title} ({chunk_rec.section_heading or 'Archival Excerpt'})",
                 content=chunk_rec.chunk_text,
                 source_url=doc_rec.source_url,
                 institution=doc_rec.publisher_institution,
                 publication_date=doc_rec.publication_date,
                 associated_site_id=doc_rec.heritage_site_id,
                 evidence_classification="DOCUMENTED",
-                score=float(sim),
+                score=round(float(score), 3),
             )
         )
 
@@ -354,7 +390,7 @@ def hybrid_retrieve_evidence(
     1. Monument databases (HeritageSite)
     2. Phase 8 Cultural Knowledge Graph (Dynasty, Ruler, Style, Tradition)
     3. Archival Sources (HeritageSource)
-    4. Semantic vector search (AIDocumentChunk)
+    4. Semantic vector & keyword chunks (AIDocumentChunk)
     """
     all_evidence: List[EvidenceItem] = []
 
@@ -374,8 +410,8 @@ def hybrid_retrieve_evidence(
     source_evidence = retrieve_archival_sources_evidence(db, query, target_site_ids)
     all_evidence.extend(source_evidence)
 
-    # 4. Semantic Chunks
-    chunk_evidence = retrieve_semantic_chunks_evidence(db, query)
+    # 4. Semantic Chunks (with hybrid keyword + vector fusion)
+    chunk_evidence = retrieve_semantic_chunks_evidence(db, query, target_site_ids=target_site_ids, limit=max_results)
     all_evidence.extend(chunk_evidence)
 
     if not all_evidence:

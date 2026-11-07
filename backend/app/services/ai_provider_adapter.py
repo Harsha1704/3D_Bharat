@@ -226,13 +226,24 @@ class OfflineFallbackProvider(BaseAIProvider):
                 "to answer this specific inquiry. No corresponding ASI or UNESCO records were matched for this topic."
             )
 
-        # Extract citation snippets from the prompt to build a grounded factual summary
-        lines = prompt.splitlines()
+        # Extract citation items from the prompt to build a grounded factual summary
+        import re
+        xml_matches = re.findall(r'<evidence_item id="(\[CITATION_\d+\])">\s*Source:\s*([^\n]+).*?Content:\s*([^\n<]+)', prompt, re.DOTALL)
+        
         evidence_lines = []
-        for line in lines:
-            line_str = line.strip()
-            if line_str.startswith("[CITATION_"):
-                evidence_lines.append(line_str)
+        if xml_matches:
+            for tag, source_title, content in xml_matches:
+                clean_content = content.strip().replace("[REDACTED_COMMAND]", "")
+                evidence_lines.append((tag, f"{source_title}: {clean_content}"))
+        else:
+            lines = prompt.splitlines()
+            for line in lines:
+                line_str = line.strip()
+                if line_str.startswith("[CITATION_"):
+                    # Extract tag and content
+                    m = re.match(r"(\[CITATION_\d+\])\s*(.*)", line_str)
+                    if m:
+                        evidence_lines.append((m.group(1), m.group(2)))
 
         if not evidence_lines:
             return (
@@ -243,9 +254,7 @@ class OfflineFallbackProvider(BaseAIProvider):
         summary_parts = [
             "Based directly on documented records in the 3D BHARAT heritage repository:"
         ]
-        for idx, ev in enumerate(evidence_lines[:5], start=1):
-            tag = f"[CITATION_{idx}]"
-            content = ev.replace(tag, "").strip(" :-\t")
+        for tag, content in evidence_lines[:5]:
             summary_parts.append(f"• {content} {tag}")
 
         return "\n".join(summary_parts)

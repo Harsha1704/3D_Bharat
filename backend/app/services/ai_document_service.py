@@ -18,47 +18,144 @@ from app.services.ai_embedding_service import (
 logger = logging.getLogger("3d_bharat.ai_document")
 
 
+def semantic_chunk_text(
+    text: str,
+    target_chunk_size: int = 450,
+    min_chunk_size: int = 50,
+) -> List[dict]:
+    """
+    Section- and sentence-aware semantic text chunker.
+    Preserves:
+    - Section headings (e.g. ## Architecture, ### Inscriptions)
+    - Structural paragraph boundaries without cutting sentences
+    - Estimates token count and attaches metadata
+    """
+    clean_text = text.replace("\r\n", "\n").strip()
+    if not clean_text:
+        return []
+
+    lines = clean_text.split("\n")
+    sections: List[tuple[str, List[str]]] = []
+    current_heading = "General Overview"
+    current_lines: List[str] = []
+
+    header_pattern = re.compile(r"^(#{1,4}\s+|SECTION\s*:\s*)(.+)$", re.IGNORECASE)
+
+    for line in lines:
+        stripped = line.strip()
+        match = header_pattern.match(stripped)
+        if match:
+            # If we had accumulated lines under previous heading, flush them
+            if current_lines:
+                sections.append((current_heading, current_lines))
+                current_lines = []
+            current_heading = match.group(2).strip()
+        else:
+            current_lines.append(line)
+
+    if current_lines:
+        sections.append((current_heading, current_lines))
+
+    chunks: List[dict] = []
+    chunk_idx = 0
+
+    for heading, sec_lines in sections:
+        section_text = "\n".join(sec_lines).strip()
+        if not section_text:
+            continue
+
+        paragraphs = [p.strip() for p in re.split(r"\n\s*\n", section_text) if p.strip()]
+        for para in paragraphs:
+            if len(para) <= target_chunk_size:
+                if len(para) >= min_chunk_size:
+                    token_est = int(len(para.split()) * 1.3)
+                    chunks.append({
+                        "index": chunk_idx,
+                        "text": para,
+                        "heading": heading,
+                        "metadata": {
+                            "char_length": len(para),
+                            "estimated_tokens": token_est,
+                            "section": heading,
+                        },
+                    })
+                    chunk_idx += 1
+            else:
+                sentences = re.split(r"(?<=[.!?])\s+", para)
+                current_chunk = []
+                current_len = 0
+
+                for sent in sentences:
+                    sent_len = len(sent)
+                    if current_len + sent_len > target_chunk_size and current_chunk:
+                        chunk_str = " ".join(current_chunk)
+                        if len(chunk_str) >= min_chunk_size:
+                            token_est = int(len(chunk_str.split()) * 1.3)
+                            chunks.append({
+                                "index": chunk_idx,
+                                "text": chunk_str,
+                                "heading": heading,
+                                "metadata": {
+                                    "char_length": len(chunk_str),
+                                    "estimated_tokens": token_est,
+                                    "section": heading,
+                                },
+                            })
+                            chunk_idx += 1
+                        current_chunk = [sent]
+                        current_len = sent_len
+                    else:
+                        current_chunk.append(sent)
+                        current_len += sent_len + 1
+
+                if current_chunk:
+                    chunk_str = " ".join(current_chunk)
+                    if len(chunk_str) >= min_chunk_size:
+                        token_est = int(len(chunk_str.split()) * 1.3)
+                        chunks.append({
+                            "index": chunk_idx,
+                            "text": chunk_str,
+                            "heading": heading,
+                            "metadata": {
+                                "char_length": len(chunk_str),
+                                "estimated_tokens": token_est,
+                                "section": heading,
+                            },
+                        })
+                        chunk_idx += 1
+
+    # Fallback if no chunks satisfied min_chunk_size
+    if not chunks and clean_text:
+        token_est = int(len(clean_text.split()) * 1.3)
+        chunks.append({
+            "index": 0,
+            "text": clean_text[:target_chunk_size],
+            "heading": current_heading,
+            "metadata": {
+                "char_length": len(clean_text[:target_chunk_size]),
+                "estimated_tokens": token_est,
+                "section": current_heading,
+            },
+        })
+
+    return chunks
+
+
 def chunk_text(
     text: str,
     target_chunk_size: int = 400,
     min_chunk_size: int = 50,
 ) -> List[str]:
     """
-    Sentence and paragraph-aware text chunker.
+    Backwards-compatible sentence and paragraph-aware text chunker.
     Preserves semantic boundaries without arbitrary slicing.
     """
-    clean_text = text.replace("\r\n", "\n").strip()
-    if not clean_text:
-        return []
-
-    # First split by double newlines (paragraphs)
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", clean_text) if p.strip()]
-    chunks: List[str] = []
-
-    for para in paragraphs:
-        if len(para) <= target_chunk_size:
-            chunks.append(para)
-        else:
-            # Split paragraph by sentences
-            sentences = re.split(r"(?<=[.!?])\s+", para)
-            current_chunk = []
-            current_len = 0
-
-            for sent in sentences:
-                sent_len = len(sent)
-                if current_len + sent_len > target_chunk_size and current_chunk:
-                    chunks.append(" ".join(current_chunk))
-                    current_chunk = [sent]
-                    current_len = sent_len
-                else:
-                    current_chunk.append(sent)
-                    current_len += sent_len + 1
-
-            if current_chunk:
-                chunks.append(" ".join(current_chunk))
-
-    # Filter out tiny fragments
-    return [c for c in chunks if len(c) >= min_chunk_size]
+    structured_chunks = semantic_chunk_text(
+        text=text,
+        target_chunk_size=target_chunk_size,
+        min_chunk_size=min_chunk_size,
+    )
+    return [c["text"] for c in structured_chunks]
 
 
 def ingest_document(
@@ -109,20 +206,28 @@ def ingest_document(
     db.add(doc)
     db.flush()
 
-    # 3. Chunk text
-    raw_chunks = chunk_text(request.text_content)
-    if not raw_chunks:
-        raw_chunks = [request.text_content.strip()]
+    # 3. Chunk text with section headings and metadata
+    structured_chunks = semantic_chunk_text(request.text_content)
+    if not structured_chunks:
+        token_estimate = int(len(request.text_content.split()) * 1.3)
+        structured_chunks = [{
+            "index": 0,
+            "text": request.text_content.strip(),
+            "heading": "General Overview",
+            "metadata": {"char_length": len(request.text_content), "estimated_tokens": token_estimate},
+        }]
 
-    doc.total_chunks = len(raw_chunks)
+    doc.total_chunks = len(structured_chunks)
 
     # 4. Generate embeddings in batch if embedding model is ready
-    chunk_embeddings = generate_batch_embeddings(raw_chunks)
+    chunk_texts = [c["text"] for c in structured_chunks]
+    chunk_embeddings = generate_batch_embeddings(chunk_texts)
     embedding_model_name = settings.AI_EMBEDDING_MODEL or "all-MiniLM-L6-v2"
 
-    for idx, chunk_str in enumerate(raw_chunks):
+    for idx, c_info in enumerate(structured_chunks):
+        chunk_str = c_info["text"]
         c_hash = compute_sha256(chunk_str)
-        token_estimate = int(len(chunk_str.split()) * 1.3)
+        token_estimate = c_info["metadata"].get("estimated_tokens", int(len(chunk_str.split()) * 1.3))
 
         chunk_record = AIDocumentChunk(
             document_id=doc.id,
@@ -130,6 +235,8 @@ def ingest_document(
             chunk_text=chunk_str,
             chunk_hash=c_hash,
             token_count=token_estimate,
+            section_heading=c_info.get("heading"),
+            metadata_json=c_info.get("metadata"),
         )
         db.add(chunk_record)
         db.flush()

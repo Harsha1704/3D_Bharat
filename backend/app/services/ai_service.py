@@ -15,7 +15,12 @@ from app.schemas.ai import (
 from app.services.ai_citation_service import process_and_validate_citations
 from app.services.ai_document_service import count_documents_and_chunks
 from app.services.ai_embedding_service import is_embedding_ready
-from app.services.ai_grounding_service import SYSTEM_GROUNDING_PROMPT, build_grounded_prompt
+from app.services.ai_grounding_service import (
+    SYSTEM_GROUNDING_PROMPT,
+    build_grounded_prompt,
+    detect_prompt_injection,
+    verify_query_grounding,
+)
 from app.services.ai_provider_adapter import get_ai_provider
 from app.services.ai_retrieval_service import hybrid_retrieve_evidence
 
@@ -33,6 +38,27 @@ def execute_ai_chat(
     3. LLM generation via provider adapter
     4. Citation validation and post-processing
     """
+    # 0. Prompt Injection & Security Guardrail
+    is_adversarial, reason = detect_prompt_injection(request.message)
+    if is_adversarial:
+        provider = get_ai_provider()
+        return AIChatResponse(
+            answer=(
+                "Request blocked by 3D BHARAT Security Guardrails: Adversarial command or prompt override pattern detected. "
+                "The AI Heritage Intelligence system operates exclusively on historical queries grounded in verified evidence."
+            ),
+            citations=[],
+            retrieved_evidence_summary="0 records retrieved (security guardrail triggered).",
+            evidence_status="UNVERIFIED",
+            limitations=[
+                "Prompt injection attempt detected and neutralized.",
+                "System instructions and data integrity protected.",
+            ],
+            conversation_id=request.conversation_id,
+            provider_status=provider.get_provider_info(),
+            research_mode=request.research_mode,
+        )
+
     max_results = (
         settings.AI_RESEARCH_MODE_MAX_RESULTS
         if request.research_mode
@@ -57,8 +83,10 @@ def execute_ai_chat(
     provider = get_ai_provider()
     provider_info = provider.get_provider_info()
 
-    # 2. Honest handling for insufficient evidence
-    if not evidence_items:
+    # 2. Honest handling for insufficient evidence or ungrounded queries
+    is_grounded, grounding_reason = verify_query_grounding(request.message, evidence_items) if evidence_items else (False, "No evidence retrieved.")
+
+    if not evidence_items or not is_grounded:
         return AIChatResponse(
             answer=(
                 "The 3D BHARAT national heritage database does not contain sufficient documented or verified records "
@@ -66,11 +94,12 @@ def execute_ai_chat(
                 "not invent, extrapolate, or hallucinate undocumented dates, dynasties, or claims."
             ),
             citations=[],
-            retrieved_evidence_summary="0 verified records matched.",
+            retrieved_evidence_summary=f"0 matching verified records ({grounding_reason}).",
             evidence_status="INSUFFICIENT_EVIDENCE",
             limitations=[
                 "Database lacks verified primary sources for this topic.",
                 "Hallucination prevention enforced.",
+                grounding_reason,
             ],
             conversation_id=request.conversation_id,
             provider_status=provider_info,

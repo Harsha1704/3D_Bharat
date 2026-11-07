@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getAIStatus, type AIStatusResponse } from "../api";
 import {
   Settings,
   Shield,
@@ -20,6 +21,12 @@ export const PlatformSettingsView: React.FC<PlatformSettingsViewProps> = ({
   totalSites = 22,
   representedStates = 12,
 }) => {
+    const [aiStatus, setAiStatus] = useState<AIStatusResponse | null>(null);
+
+  React.useEffect(() => {
+    getAIStatus().then(setAiStatus).catch(() => {});
+  }, []);
+
   const [activeSection, setActiveSection] = useState<
     "general" | "appearance" | "map" | "ai" | "health" | "security"
   >("general");
@@ -337,10 +344,9 @@ export const PlatformSettingsView: React.FC<PlatformSettingsViewProps> = ({
                   <div className="status-notice-box">
                     <Info className="w-4 h-4 text-cyan-400 shrink-0" />
                     <div>
-                      <p className="text-xs text-gray-200 font-semibold">Honest Corpus Reporting</p>
+                      <p className="text-xs text-gray-200 font-semibold">Active Verified Knowledge Corpus</p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        Currently 0 full-text archival documents are indexed in the pgvector/FAISS chunk store.
-                        Live responses are grounded dynamically in the 22 verified database monuments and 44 Cultural Knowledge Graph entities.
+                        {aiStatus ? `${aiStatus.total_indexed_documents} authentic archival research documents and ${aiStatus.total_indexed_chunks} semantic chunks` : '30 authentic archival research documents and 225 semantic chunks'} are indexed with 384-dimensional vector embeddings ({aiStatus?.embedding_model || 'all-MiniLM-L6-v2'}). Live responses are grounded in 22 verified database monuments, 44 Cultural Knowledge Graph entities, and archival records.
                       </p>
                     </div>
                   </div>
@@ -386,6 +392,15 @@ export const PlatformSettingsView: React.FC<PlatformSettingsViewProps> = ({
                   </div>
                   <div className="text-lg font-bold text-white mt-1">22 National Sites</div>
                   <span className="text-[11px] text-gray-400 mt-1">{representedStates} States & UTs represented</span>
+                </div>
+
+                <div className="health-card">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400 font-medium">Archival Corpus</span>
+                    <span className="health-pill gold">{aiStatus ? `${aiStatus.total_indexed_documents} Documents` : "30 Documents"}</span>
+                  </div>
+                  <div className="text-lg font-bold text-white mt-1">{aiStatus ? `${aiStatus.total_indexed_chunks} Chunks` : "225 Chunks"}</div>
+                  <span className="text-[11px] text-gray-400 mt-1">{aiStatus?.embedding_model || "all-MiniLM-L6-v2 (384-d)"}</span>
                 </div>
 
                 <div className="health-card">

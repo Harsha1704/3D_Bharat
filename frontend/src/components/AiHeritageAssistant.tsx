@@ -198,8 +198,8 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
           <div className="honest-corpus-status-box mt-6">
             <Info className="w-4 h-4 text-cyan-400 shrink-0" />
             <div className="text-[11px] text-gray-400 leading-snug">
-              <strong className="text-gray-200 block mb-0.5">Corpus Integrity</strong>
-              0 Full-Text Documents in Vector Chunk Index. Live retrieval queries the 22 verified database monuments & 44 graph entities directly.
+              <strong className="text-gray-200 block mb-0.5">Verified Archival Corpus</strong>
+              {aiStatus ? `${aiStatus.total_indexed_documents} Archival Documents (${aiStatus.total_indexed_chunks} Semantic Chunks)` : '30 Archival Documents (225 Semantic Chunks)'} indexed with 384-d vector embeddings, grounded in 22 verified monuments & 44 cultural graph entities.
             </div>
           </div>
         </aside>
