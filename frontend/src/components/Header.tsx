@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useLocation, Link } from "react-router-dom";
 import {
   Search,
   Bell,
@@ -16,35 +17,37 @@ interface HeaderProps {
   onSearchSelect: (site: HeritageSite) => void;
   sites: HeritageSite[];
   onOpenMobileMenu: () => void;
-  activeTab?: string;
   totalSites?: number;
+  distinctStatesCount?: number;
 }
 
-const TAB_TITLES: Record<string, string> = {
-  dashboard: "National Command Centre",
-  explorer: "Heritage Explorer",
-  map: "All India Heritage Map",
-  graph: "Cultural Knowledge Graph",
-  assistant: "AI Heritage Intelligence",
-  "3d": "3D Photogrammetry Preservation",
-  coverage: "National Data Coverage & ASI Circles",
-  analytics: "Heritage Analytics & Regional Breakdown",
-  management: "Preservation & Ingestion Management",
-  settings: "System Configuration",
+const ROUTE_PAGE_TITLES: Record<string, string> = {
+  "/": "National Command Centre",
+  "/dashboard": "National Command Centre",
+  "/explorer": "Heritage Explorer",
+  "/map": "All India Heritage Map",
+  "/graph": "Cultural Knowledge Graph",
+  "/assistant": "AI Heritage Intelligence",
+  "/3d": "3D Digital Preservation",
+  "/coverage": "National Coverage & ASI Audit",
+  "/analytics": "Heritage Analytics",
+  "/management": "Preservation Management",
+  "/settings": "Platform Settings",
 };
 
 export const Header: React.FC<HeaderProps> = ({
   onSearchSelect,
   sites,
   onOpenMobileMenu,
-  activeTab = "dashboard",
   totalSites = 22,
+  distinctStatesCount = 12,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   // Filter sites live based on search term
   const filteredSuggestions = searchTerm.trim()
@@ -76,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const pageTitle = TAB_TITLES[activeTab] || "National Command Centre";
+  const pageTitle = ROUTE_PAGE_TITLES[location.pathname] || "Heritage Intelligence";
 
   return (
     <header className="dashboard-header">
@@ -92,19 +95,19 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Command Centre Breadcrumbs */}
         <div className="header-breadcrumbs">
-          <div className="breadcrumb-brand">
+          <Link to="/" className="breadcrumb-brand">
             <span className="brand-dot" />
             <span className="brand-name">3D BHARAT</span>
-          </div>
+          </Link>
           <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
           <h2 className="header-page-title">{pageTitle}</h2>
         </div>
 
-        {/* Live System Status Pill */}
-        <div className="header-status-pill hidden md:flex" title="Live PostgreSQL 17 & ASI baseline active">
+        {/* Live Reconciled System Status Pill */}
+        <div className="header-status-pill hidden md:flex" title="PostgreSQL 17 Database Connected">
           <span className="status-live-indicator" />
           <span className="status-live-text">
-            Live • <strong>{sites.length || totalSites}</strong> Sites • <strong>28</strong> States • DB Connected
+            Live • <strong>{sites.length || totalSites}</strong> Monuments • <strong>{distinctStatesCount}</strong> States • DB Connected
           </span>
         </div>
       </div>
@@ -248,7 +251,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* User Profile Pill */}
-        <div className="user-profile-pill" title="Heritage Intelligence Officer">
+        <Link to="/settings" className="user-profile-pill" title="Platform Settings & Officer Profile">
           <div className="user-avatar-circle">
             <span className="avatar-initial">H</span>
           </div>
@@ -256,7 +259,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="user-name-label">Harsha</span>
             <span className="user-role-label">Lead Researcher</span>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

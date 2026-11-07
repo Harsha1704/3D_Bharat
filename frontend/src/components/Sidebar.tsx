@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Compass,
@@ -15,52 +16,38 @@ import {
   X,
 } from "lucide-react";
 
-export type NavTab =
-  | "dashboard"
-  | "explorer"
-  | "map"
-  | "graph"
-  | "assistant"
-  | "3d"
-  | "coverage"
-  | "analytics"
-  | "management"
-  | "settings";
-
 interface SidebarProps {
-  activeTab: NavTab;
-  onTabChange: (tab: NavTab) => void;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
+  totalSites?: number;
 }
 
 interface NavItemConfig {
-  id: NavTab;
+  path: string;
   label: string;
   badge?: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
 const navItems: NavItemConfig[] = [
-  { id: "dashboard", label: "Command Centre", icon: LayoutDashboard },
-  { id: "explorer", label: "Heritage Explorer", badge: "22", icon: Compass },
-  { id: "map", label: "India Heritage Map", icon: MapPin },
-  { id: "graph", label: "Knowledge Graph", badge: "44", icon: Network },
-  { id: "assistant", label: "AI Intelligence", badge: "RAG", icon: Bot },
-  { id: "3d", label: "3D Exploration", icon: Box },
-  { id: "coverage", label: "National Coverage", badge: "ASI", icon: ShieldCheck },
-  { id: "analytics", label: "Heritage Analytics", icon: BarChart3 },
-  { id: "management", label: "Preservation Mgmt", icon: Database },
-  { id: "settings", label: "Platform Settings", icon: Settings },
+  { path: "/", label: "Command Centre", icon: LayoutDashboard },
+  { path: "/explorer", label: "Heritage Explorer", badge: "22", icon: Compass },
+  { path: "/map", label: "India Heritage Map", icon: MapPin },
+  { path: "/graph", label: "Knowledge Graph", badge: "44", icon: Network },
+  { path: "/assistant", label: "AI Intelligence", badge: "RAG", icon: Bot },
+  { path: "/3d", label: "3D Exploration", icon: Box },
+  { path: "/coverage", label: "National Coverage", badge: "ASI", icon: ShieldCheck },
+  { path: "/analytics", label: "Heritage Analytics", icon: BarChart3 },
+  { path: "/management", label: "Preservation Mgmt", icon: Database },
+  { path: "/settings", label: "Platform Settings", icon: Settings },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  activeTab,
-  onTabChange,
   isOpenMobile,
   onCloseMobile,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const location = useLocation();
 
   return (
     <>
@@ -79,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Brand Header */}
         <div className="sidebar-brand">
-          <div className="brand-logo-wrapper">
+          <NavLink to="/" className="brand-logo-wrapper" onClick={onCloseMobile}>
             <svg
               className="brand-temple-icon"
               viewBox="0 0 48 48"
@@ -119,11 +106,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </linearGradient>
               </defs>
             </svg>
-          </div>
+          </NavLink>
 
           {!isCollapsed && (
             <div className="brand-text">
-              <h1 className="brand-title">3D BHARAT</h1>
+              <NavLink to="/" className="brand-title-link" onClick={onCloseMobile}>
+                <h1 className="brand-title">3D BHARAT</h1>
+              </NavLink>
               <p className="brand-tagline">National Heritage Intelligence</p>
             </div>
           )}
@@ -139,18 +128,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Navigation Menu */}
+        {/* Navigation Menu with independent scrolling */}
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            // Exact matching for "/" to prevent substring active matching bugs!
+            const isActive =
+              item.path === "/"
+                ? location.pathname === "/" || location.pathname === "/dashboard"
+                : location.pathname.startsWith(item.path);
+
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onTabChange(item.id);
-                  if (isOpenMobile) onCloseMobile();
-                }}
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={onCloseMobile}
                 className={`nav-item ${isActive ? "active" : ""}`}
                 title={isCollapsed ? item.label : undefined}
               >
@@ -166,30 +158,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </>
                 )}
                 {isActive && <span className="active-glow-pill" />}
-              </button>
+              </NavLink>
             );
           })}
         </nav>
 
-        {/* Collapse / Expand Toggle Button for Desktop */}
+        {/* Desktop Collapse / Expand Rail Toggle */}
         <div className="sidebar-collapse-container hidden lg:flex">
           <button
             className="sidebar-toggle-btn"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            title={isCollapsed ? "Expand Sidebar Navigation" : "Collapse Sidebar Navigation"}
           >
             {isCollapsed ? (
               <ChevronRight className="w-4 h-4 text-amber-400" />
             ) : (
               <>
-                <ChevronLeft className="w-4 h-4 text-gray-400 group-hover:text-amber-400" />
-                <span className="text-xs text-gray-400 group-hover:text-white">Collapse Menu</span>
+                <ChevronLeft className="w-4 h-4 text-gray-400" />
+                <span className="text-xs text-gray-400">Collapse Menu</span>
               </>
             )}
           </button>
         </div>
 
-        {/* Sidebar Footer Artwork & Slogan */}
+        {/* Sidebar Footer Artwork & Slogan (Non-overlapping) */}
         {!isCollapsed && (
           <div className="sidebar-footer">
             <div className="temple-artwork-container">

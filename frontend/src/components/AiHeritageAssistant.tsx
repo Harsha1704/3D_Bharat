@@ -11,6 +11,9 @@ import {
   Info,
   Loader2,
   X,
+  MapPin,
+  Calendar,
+  MessageSquare,
 } from "lucide-react";
 import {
   chatWithHeritageAI,
@@ -37,16 +40,20 @@ interface AiHeritageAssistantProps {
   isExpanded?: boolean;
 }
 
-const RESEARCH_SUGGESTIONS = [
+const RESEARCH_TOPICS = [
   "Significance of Brihadisvara Temple and Chola evidence",
   "Which dynasty and architectural style built Taj Mahal?",
   "Dravidian architectural elements in South Indian temples",
   "Monastic traditions preserved at Ajanta Caves",
   "Vijayanagara stone engineering at Hampi",
+  "Hydraulic engineering at Rani-ki-Vav stepwell",
+  "Buddhist philosophy reflected in Sanchi Stupa 1",
+  "Kailasa Temple monolithic excavation technique",
 ];
 
 export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
   selectedSite,
+  allSites = [],
   onExploreSite,
   isExpanded = false,
 }) => {
@@ -65,10 +72,16 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
   const [researchMode, setResearchMode] = useState(false);
   const [aiStatus, setAiStatus] = useState<AIStatusResponse | null>(null);
   const [selectedCitation, setSelectedCitation] = useState<AICitation | null>(null);
+  const [activeSiteContext, setActiveSiteContext] = useState<HeritageSite | null>(selectedSite);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Fetch AI service capability status
+  // Sync prop changes
+  useEffect(() => {
+    if (selectedSite) setActiveSiteContext(selectedSite);
+  }, [selectedSite]);
+
+  // Fetch AI service capability status
   useEffect(() => {
     let mounted = true;
     getAIStatus()
@@ -81,12 +94,12 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
     };
   }, []);
 
-  // 2. Auto-scroll to bottom of chat
+  // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // 3. Handle message send
+  // Handle message send
   const handleSend = async (queryText?: string) => {
     const textToSend = queryText || inputText;
     if (!textToSend.trim() || loading) return;
@@ -99,13 +112,13 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    if (!queryText) setInputText("");
+    setInputText("");
     setLoading(true);
 
     try {
       const response = await chatWithHeritageAI({
         message: textToSend.trim(),
-        selected_site_id: selectedSite?.id,
+        selected_site_id: activeSiteContext?.id,
         research_mode: researchMode,
       });
 
@@ -116,7 +129,7 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
         citations: response.citations,
         evidenceStatus: response.evidence_status,
         evidenceSummary: response.retrieved_evidence_summary,
-        timestamp: "Just now",
+        timestamp: "Evidence Grounded",
       };
 
       setMessages((prev) => [...prev, botMsg]);
@@ -124,7 +137,7 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: "bot",
-        text: `Unable to retrieve verified heritage records: ${err.message || "Connection failed"}. Please retry.`,
+        text: `Unable to complete research query: ${err.message || "Backend retrieval service offline"}. Please verify connection to the 3D Bharat backend API.`,
         timestamp: "Error",
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -133,9 +146,275 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
     }
   };
 
+  // If expanded full-screen research mode
+  if (isExpanded) {
+    return (
+      <div className="ai-research-workspace-layout">
+        {/* Left Column: Research Topics & Monument Context Selector */}
+        <aside className="research-sidebar-left">
+          <div className="research-sidebar-header">
+            <MessageSquare className="w-4 h-4 text-amber-400" />
+            <h4 className="text-xs uppercase tracking-wider text-white font-bold">
+              Research Prompts
+            </h4>
+          </div>
+
+          <div className="research-topics-list">
+            {RESEARCH_TOPICS.map((topic, i) => (
+              <button
+                key={i}
+                className="topic-pill-btn"
+                onClick={() => handleSend(topic)}
+                disabled={loading}
+              >
+                <Sparkles className="w-3 h-3 text-cyan-400 shrink-0" />
+                <span>{topic}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="research-context-selector-box mt-6">
+            <span className="text-xs font-semibold text-gray-300 block mb-2">
+              Filter by Active Monument Context
+            </span>
+            <select
+              className="context-monument-select"
+              value={activeSiteContext?.id || ""}
+              onChange={(e) => {
+                const siteId = Number(e.target.value);
+                const matched = allSites.find((s) => s.id === siteId) || null;
+                setActiveSiteContext(matched);
+              }}
+            >
+              <option value="">All National Monuments (Pan-India)</option>
+              {allSites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.state})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="honest-corpus-status-box mt-6">
+            <Info className="w-4 h-4 text-cyan-400 shrink-0" />
+            <div className="text-[11px] text-gray-400 leading-snug">
+              <strong className="text-gray-200 block mb-0.5">Corpus Integrity</strong>
+              0 Full-Text Documents in Vector Chunk Index. Live retrieval queries the 22 verified database monuments & 44 graph entities directly.
+            </div>
+          </div>
+        </aside>
+
+        {/* Center Column: Spacious Chat Interface */}
+        <main className="research-chat-centre">
+          <div className="research-chat-header">
+            <div className="flex items-center gap-2">
+              <Bot className="w-5 h-5 text-cyan-400" />
+              <div>
+                <h3 className="text-base font-bold text-white">AI Heritage Intelligence</h3>
+                <span className="text-xs text-gray-400">
+                  Scholarly Research Environment • Traceable Citations
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className={`btn-research-mode ${researchMode ? "active" : ""}`}
+                onClick={() => setResearchMode(!researchMode)}
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1" />
+                <span>Deep Research</span>
+              </button>
+              <span className="live-status-pill">
+                <span className="live-pulse-dot" />
+                <span>{aiStatus?.provider_configured ? "Model Ready" : "Grounded Retrieval"}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="research-messages-area">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`chat-message-row ${msg.sender}`}>
+                {msg.sender === "bot" && (
+                  <div className="message-avatar bot">
+                    <Landmark className="w-4 h-4 text-amber-400" />
+                  </div>
+                )}
+                {msg.sender === "user" && (
+                  <div className="message-avatar user">
+                    <User className="w-4 h-4 text-cyan-400" />
+                  </div>
+                )}
+
+                <div className="message-card-bubble">
+                  <p className="message-prose">{msg.text}</p>
+
+                  {/* Citations */}
+                  {msg.citations && msg.citations.length > 0 && (
+                    <div className="citations-tray">
+                      <span className="citations-title">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 mr-1 inline" />
+                        Retrieved Evidence Sources:
+                      </span>
+                      <div className="citations-list-row">
+                        {msg.citations.map((c) => (
+                          <button
+                            key={c.citation_id}
+                            className="citation-chip-btn"
+                            onClick={() => setSelectedCitation(c)}
+                          >
+                            <span className="citation-id-num">{c.citation_id}</span>
+                            <span className="citation-title-text">{c.source_title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="message-meta-footer">
+                    {msg.evidenceStatus && (
+                      <span className={`evidence-badge ${msg.evidenceStatus.toLowerCase()}`}>
+                        {msg.evidenceStatus}
+                      </span>
+                    )}
+                    <span className="time-tag">{msg.timestamp}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Box */}
+          <form
+            className="research-chat-input-bar"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+          >
+            <input
+              type="text"
+              className="research-input-field"
+              placeholder={
+                activeSiteContext
+                  ? `Ask about ${activeSiteContext.name}, dynastic period, or architectural significance...`
+                  : "Ask about Indian monuments, dynasties, architectural styles, or inscriptions..."
+              }
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              className="research-submit-btn"
+              disabled={!inputText.trim() || loading}
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin text-gray-900" />
+              ) : (
+                <Send className="w-4 h-4 text-gray-900" />
+              )}
+            </button>
+          </form>
+        </main>
+
+        {/* Right Column: Selected Monument Context & Citation Viewer */}
+        <aside className="research-sidebar-right hidden xl:flex">
+          {activeSiteContext ? (
+            <div className="context-monument-card">
+              <div className="context-card-header">
+                <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">
+                  Active Context
+                </span>
+                <span className="context-category">{activeSiteContext.category || "Monument"}</span>
+              </div>
+
+              <h4 className="context-name">{activeSiteContext.name}</h4>
+              <div className="context-location">
+                <MapPin className="w-3.5 h-3.5 text-gray-400 mr-1" />
+                <span>{activeSiteContext.city || activeSiteContext.district}, {activeSiteContext.state}</span>
+              </div>
+
+              <p className="context-description">
+                {activeSiteContext.description || "Historical monument documented in the central database."}
+              </p>
+
+              {activeSiteContext.period && (
+                <div className="context-era">
+                  <Calendar className="w-3.5 h-3.5 text-gray-400 mr-1.5" />
+                  <span>{activeSiteContext.period}</span>
+                </div>
+              )}
+
+              {onExploreSite && (
+                <button
+                  className="btn-view-dossier-small mt-4"
+                  onClick={() => onExploreSite(activeSiteContext)}
+                >
+                  Inspect Complete Dossier
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="empty-context-box">
+              <Landmark className="w-8 h-8 text-amber-400/30 mb-2" />
+              <span className="text-xs text-gray-400">Pan-India General Retrieval Active</span>
+              <span className="text-[11px] text-gray-500 mt-1">Select a monument from the left to narrow context.</span>
+            </div>
+          )}
+        </aside>
+
+        {/* Citation Popover Modal */}
+        {selectedCitation && (
+          <div className="citation-modal-backdrop" onClick={() => setSelectedCitation(null)}>
+            <div className="citation-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="citation-modal-header">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-amber-400" />
+                  <h4 className="citation-modal-title">
+                    Citation {selectedCitation.citation_id}: {selectedCitation.source_title}
+                  </h4>
+                </div>
+                <button className="citation-close-btn" onClick={() => setSelectedCitation(null)}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="citation-modal-body">
+                <div className="citation-meta-item">
+                  <span className="meta-label">Institution:</span>
+                  <span className="meta-val">
+                    {selectedCitation.institution || "Archaeological Survey of India (ASI)"}
+                  </span>
+                </div>
+                <div className="citation-excerpt-box">
+                  <span className="meta-label block mb-1">Archival Text Excerpt:</span>
+                  <p className="excerpt-text">{selectedCitation.relevant_excerpt}</p>
+                </div>
+                {selectedCitation.source_url && (
+                  <a
+                    href={selectedCitation.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="citation-external-link"
+                  >
+                    Open Archival Source <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Compact mode for dashboard
   return (
-    <div className={`assistant-panel-card ${isExpanded ? "expanded-assistant" : ""}`}>
-      {/* Panel Header */}
+    <div className="assistant-panel-card">
       <div className="panel-header">
         <div className="panel-title-group">
           <Bot className="panel-icon text-cyan-400" />
@@ -147,60 +426,29 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
           </div>
         </div>
 
-        {/* Honest Status Badge */}
         <div className="flex items-center gap-3">
-          {aiStatus ? (
-            <div
-              className={`ai-status-indicator ${
-                aiStatus.provider_configured ? "status-online" : "status-fallback"
-              }`}
-              title={
-                aiStatus.provider_configured
-                  ? `AI Provider: ${aiStatus.provider} (${aiStatus.model})`
-                  : "External LLM unconfigured. Grounded factual retrieval active."
-              }
-            >
-              <span className="status-dot"></span>
-              <span className="status-text">
-                {aiStatus.provider_configured ? "AI Online" : "Grounded Archive"}
-              </span>
-            </div>
-          ) : (
-            <span className="text-xs text-gray-500">Checking...</span>
-          )}
-
-          {/* Research Mode Switch */}
-          <button
-            type="button"
-            className={`btn-research-mode ${researchMode ? "active" : ""}`}
-            onClick={() => setResearchMode(!researchMode)}
-            title="Toggle deep scholarly research analysis"
+          <div
+            className={`ai-status-indicator ${
+              aiStatus?.provider_configured ? "status-online" : "status-fallback"
+            }`}
           >
-            <Sparkles className="w-3.5 h-3.5 mr-1" />
-            Research Mode
-          </button>
+            <span className="status-dot"></span>
+            <span className="status-text">
+              {aiStatus?.provider_configured ? "AI Online" : "Grounded Archive"}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Selected Monument Context Banner */}
-      {selectedSite && (
+      {activeSiteContext && (
         <div className="assistant-context-banner">
           <Landmark className="w-3.5 h-3.5 text-amber-400" />
           <span className="context-text">
-            Active Context: <strong>{selectedSite.name}</strong> ({selectedSite.state})
+            Active Context: <strong>{activeSiteContext.name}</strong> ({activeSiteContext.state})
           </span>
-          {onExploreSite && (
-            <button
-              className="context-dossier-btn"
-              onClick={() => onExploreSite(selectedSite)}
-            >
-              View Dossier
-            </button>
-          )}
         </div>
       )}
 
-      {/* Messages Area */}
       <div className="assistant-chat-container">
         {messages.map((msg) => (
           <div key={msg.id} className={`chat-message ${msg.sender}`}>
@@ -209,18 +457,14 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
                 <Landmark className="w-4 h-4 text-amber-300" />
               </div>
             )}
-
             <div className="message-bubble">
               <p className="message-text">{msg.text}</p>
-
-              {/* Citations List */}
               {msg.citations && msg.citations.length > 0 && (
                 <div className="message-citations-container">
                   <div className="citations-header">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 mr-1" />
                     <span>Verified Citations ({msg.citations.length}):</span>
                   </div>
-
                   <div className="citations-pills-row">
                     {msg.citations.map((c) => (
                       <button
@@ -228,7 +472,6 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
                         type="button"
                         className="citation-pill"
                         onClick={() => setSelectedCitation(c)}
-                        title={`Click to view citation metadata for ${c.source_title}`}
                       >
                         <span className="citation-num">{c.citation_id}</span>
                         <span className="citation-name">{c.source_title}</span>
@@ -237,57 +480,12 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
                   </div>
                 </div>
               )}
-
-              {/* Evidence Status Pill */}
-              {msg.evidenceStatus && (
-                <div className="message-footer-meta">
-                  <span className={`evidence-badge ${msg.evidenceStatus.toLowerCase()}`}>
-                    {msg.evidenceStatus}
-                  </span>
-                  <span className="timestamp">{msg.timestamp}</span>
-                </div>
-              )}
             </div>
-
-            {msg.sender === "user" && (
-              <div className="user-avatar-badge">
-                <User className="w-4 h-4 text-blue-300" />
-              </div>
-            )}
           </div>
         ))}
-
-        {loading && (
-          <div className="chat-message bot">
-            <div className="bot-avatar-badge">
-              <Loader2 className="w-4 h-4 text-amber-300 animate-spin" />
-            </div>
-            <div className="message-bubble loading-bubble">
-              <span className="typing-dots">
-                Consulting National Heritage Register & Knowledge Graph...
-              </span>
-            </div>
-          </div>
-        )}
-
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Prompt Chips */}
-      <div className="quick-chips-row">
-        {RESEARCH_SUGGESTIONS.map((chip) => (
-          <button
-            key={chip}
-            className="chip-btn"
-            onClick={() => handleSend(chip)}
-            disabled={loading}
-          >
-            {chip}
-          </button>
-        ))}
-      </div>
-
-      {/* Input Box */}
       <form
         className="assistant-input-form"
         onSubmit={(e) => {
@@ -298,11 +496,7 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
         <input
           type="text"
           className="assistant-input"
-          placeholder={
-            selectedSite
-              ? `Ask about ${selectedSite.name}, dynasties, or architecture...`
-              : "Ask about documented monuments, dynasties, rulers, or traditions..."
-          }
+          placeholder="Ask about documented monuments, dynasties, or architecture..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           disabled={loading}
@@ -310,7 +504,6 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
         <button
           type="submit"
           className="assistant-send-btn"
-          aria-label="Send research question"
           disabled={!inputText.trim() || loading}
         >
           {loading ? (
@@ -320,82 +513,6 @@ export const AiHeritageAssistant: React.FC<AiHeritageAssistantProps> = ({
           )}
         </button>
       </form>
-
-      {/* Citation Details Popover / Modal */}
-      {selectedCitation && (
-        <div className="citation-modal-backdrop" onClick={() => setSelectedCitation(null)}>
-          <div
-            className="citation-modal-card"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="citation-modal-header">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-amber-400" />
-                <h4 className="citation-modal-title">
-                  Citation {selectedCitation.citation_id}: {selectedCitation.source_title}
-                </h4>
-              </div>
-              <button
-                className="citation-close-btn"
-                onClick={() => setSelectedCitation(null)}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="citation-modal-body">
-              <div className="citation-meta-item">
-                <span className="meta-label">Institution / Publisher:</span>
-                <span className="meta-val">
-                  {selectedCitation.institution || "Archaeological Survey of India (ASI)"}
-                </span>
-              </div>
-
-              {selectedCitation.publication_date && (
-                <div className="citation-meta-item">
-                  <span className="meta-label">Publication / Archive Date:</span>
-                  <span className="meta-val">{selectedCitation.publication_date}</span>
-                </div>
-              )}
-
-              <div className="citation-meta-item">
-                <span className="meta-label">Evidence Classification:</span>
-                <span className={`evidence-badge ${selectedCitation.evidence_classification.toLowerCase()}`}>
-                  {selectedCitation.evidence_classification}
-                </span>
-              </div>
-
-              {selectedCitation.associated_site_name && (
-                <div className="citation-meta-item">
-                  <span className="meta-label">Associated Monument:</span>
-                  <span className="meta-val">{selectedCitation.associated_site_name}</span>
-                </div>
-              )}
-
-              <div className="citation-excerpt-box">
-                <span className="meta-label block mb-1">Archival Text Excerpt:</span>
-                <p className="excerpt-text">{selectedCitation.relevant_excerpt}</p>
-              </div>
-
-              {selectedCitation.source_url ? (
-                <a
-                  href={selectedCitation.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="citation-external-link"
-                >
-                  Open Archival Document Record <ExternalLink className="w-3.5 h-3.5 ml-1" />
-                </a>
-              ) : (
-                <div className="citation-archival-note">
-                  <Info className="w-3.5 h-3.5 inline mr-1 text-gray-400" />
-                  Preserved in central national heritage database repository.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
