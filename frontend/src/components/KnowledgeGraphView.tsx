@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Network, ArrowRight } from "lucide-react";
+import { Network, ArrowRight, Link2, Landmark } from "lucide-react";
 import type { HeritageSite, HeritageConnection } from "../api";
 
 interface KnowledgeGraphViewProps {
@@ -13,8 +13,8 @@ interface KnowledgeGraphViewProps {
 interface OrbitalNode {
   id: string | number;
   label: string;
-  type: "site" | "tradition" | "architecture" | "person" | "region";
-  imgUrl?: string;
+  relationshipType: string;
+  category: "documented" | "architectural" | "regional";
   targetSite?: HeritageSite;
 }
 
@@ -25,16 +25,16 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
   onSelectConnectedSite,
   onViewFullGraph,
 }) => {
-  // If no site selected, pick first site with connections or first site
   const currentSite = selectedSite || allSites[0] || null;
 
-  // Build 4-6 dynamic orbital nodes related to currentSite
+  // Build authentic orbital nodes derived strictly from database records
   const orbitalNodes = useMemo<OrbitalNode[]>(() => {
     if (!currentSite) return [];
 
     const nodes: OrbitalNode[] = [];
+    const seenSiteIds = new Set<number>([currentSite.id]);
 
-    // 1. Direct connections from DB
+    // 1. Direct documented connections from database
     const directConnections = connections.filter(
       (c) =>
         c.source_site_id === currentSite.id || c.target_site_id === currentSite.id
@@ -45,79 +45,60 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
         conn.source_site_id === currentSite.id
           ? conn.target_site_id
           : conn.source_site_id;
-      const otherSite = allSites.find((s) => s.id === otherId);
-      if (otherSite && !nodes.some((n) => n.id === otherSite.id)) {
-        nodes.push({
-          id: otherSite.id,
-          label: otherSite.name,
-          type: "site",
-          targetSite: otherSite,
-        });
-      }
-    }
 
-    // 2. Traditions or associated people
-    if (currentSite.traditions && currentSite.traditions.length > 0) {
-      for (const t of currentSite.traditions.slice(0, 2)) {
-        if (!nodes.some((n) => n.label === t)) {
+      if (!seenSiteIds.has(otherId)) {
+        seenSiteIds.add(otherId);
+        const otherSite = allSites.find((s) => s.id === otherId);
+        if (otherSite) {
           nodes.push({
-            id: `trad-${t}`,
-            label: t,
-            type: "tradition",
+            id: otherSite.id,
+            label: otherSite.name,
+            relationshipType: conn.relationship_type.replace(/_/g, " "),
+            category: "documented",
+            targetSite: otherSite,
           });
         }
       }
     }
 
-    // 3. Alternative names or period
-    if (
-      currentSite.alternative_names &&
-      currentSite.alternative_names.length > 0
-    ) {
-      for (const alt of currentSite.alternative_names.slice(0, 1)) {
-        if (!nodes.some((n) => n.label === alt)) {
-          nodes.push({
-            id: `alt-${alt}`,
-            label: alt,
-            type: "site",
-          });
-        }
-      }
-    }
+    // 2. Architectural peers (same category in DB)
+    if (currentSite.category) {
+      const categoryPeers = allSites.filter(
+        (s) =>
+          !seenSiteIds.has(s.id) &&
+          s.category &&
+          s.category.toLowerCase() === currentSite.category!.toLowerCase()
+      );
 
-    // 4. District / State Heritage
-    if (currentSite.district || currentSite.state) {
-      const locLabel = `${currentSite.district || currentSite.state} Heritage`;
-      if (!nodes.some((n) => n.label === locLabel)) {
+      for (const peer of categoryPeers.slice(0, 2)) {
+        seenSiteIds.add(peer.id);
         nodes.push({
-          id: `loc-${locLabel}`,
-          label: locLabel,
-          type: "region",
+          id: peer.id,
+          label: peer.name,
+          relationshipType: `Shared ${currentSite.category} Style`,
+          category: "architectural",
+          targetSite: peer,
         });
       }
     }
 
-    // Fallback orbital nodes matching the reference if site has few linkages
-    const defaultLabels = [
-      "Harmandir Sahib",
-      "Jallianwala Bagh",
-      "Punjab Culture",
-      "Amritsar Heritage",
-    ];
+    // 3. Regional peers (same state in DB)
+    if (nodes.length < 4 && currentSite.state) {
+      const statePeers = allSites.filter(
+        (s) =>
+          !seenSiteIds.has(s.id) &&
+          s.state &&
+          s.state.toLowerCase() === currentSite.state!.toLowerCase()
+      );
 
-    while (nodes.length < 4) {
-      const fallbackLabel = defaultLabels[nodes.length % defaultLabels.length];
-      if (!nodes.some((n) => n.label === fallbackLabel)) {
+      for (const peer of statePeers.slice(0, 1)) {
+        seenSiteIds.add(peer.id);
         nodes.push({
-          id: `fallback-${nodes.length}`,
-          label: fallbackLabel,
-          type: "tradition",
-        });
-      } else {
-        nodes.push({
-          id: `extra-${nodes.length}`,
-          label: `${currentSite.category || "Monument"} Legacy`,
-          type: "architecture",
+          id: peer.id,
+          label: peer.name,
+          relationshipType: `${currentSite.state} Heritage`,
+          category: "regional",
+          targetSite: peer,
         });
       }
     }
@@ -125,12 +106,12 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     return nodes.slice(0, 4);
   }, [currentSite, connections, allSites]);
 
-  // Polar coordinate positions for 4 satellites: Top-Left, Top-Right, Bottom-Right, Bottom-Left
+  // Satellite node polar positions
   const satellitePositions = [
-    { top: "16%", left: "18%" },
-    { top: "16%", right: "18%" },
-    { bottom: "16%", right: "18%" },
-    { bottom: "16%", left: "18%" },
+    { top: "14%", left: "14%" },
+    { top: "14%", right: "14%" },
+    { bottom: "14%", right: "14%" },
+    { bottom: "14%", left: "14%" },
   ];
 
   return (
@@ -149,110 +130,101 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
 
       {/* Radial Hub and Spoke Canvas */}
       <div className="radial-graph-container">
-        {/* SVG Connecting Light Rays */}
-        <svg
-          className="radial-beams-svg"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          {/* Beams from Center (50, 50) to 4 orbital quadrants */}
-          <line
-            x1="50"
-            y1="50"
-            x2="24"
-            y2="24"
-            stroke="url(#beamGrad)"
-            strokeWidth="1.5"
-            strokeDasharray="3 2"
-          />
-          <line
-            x1="50"
-            y1="50"
-            x2="76"
-            y2="24"
-            stroke="url(#beamGrad)"
-            strokeWidth="1.5"
-            strokeDasharray="3 2"
-          />
-          <line
-            x1="50"
-            y1="50"
-            x2="76"
-            y2="76"
-            stroke="url(#beamGrad)"
-            strokeWidth="1.5"
-            strokeDasharray="3 2"
-          />
-          <line
-            x1="50"
-            y1="50"
-            x2="24"
-            y2="76"
-            stroke="url(#beamGrad)"
-            strokeWidth="1.5"
-            strokeDasharray="3 2"
-          />
+        {orbitalNodes.length > 0 ? (
+          <>
+            {/* SVG Connecting Light Rays */}
+            <svg
+              className="radial-beams-svg"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {orbitalNodes.map((_, idx) => {
+                const targetPoints = [
+                  { x: 22, y: 22 },
+                  { x: 78, y: 22 },
+                  { x: 78, y: 78 },
+                  { x: 22, y: 78 },
+                ];
+                const pt = targetPoints[idx];
+                return (
+                  <line
+                    key={idx}
+                    x1="50"
+                    y1="50"
+                    x2={pt.x}
+                    y2={pt.y}
+                    stroke="url(#beamGrad)"
+                    strokeWidth="1.5"
+                    strokeDasharray="3 2"
+                  />
+                );
+              })}
 
-          <defs>
-            <linearGradient id="beamGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#FFC857" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#D9A441" stopOpacity="0.3" />
-            </linearGradient>
-          </defs>
-        </svg>
+              <defs>
+                <linearGradient id="beamGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#FFC857" stopOpacity="0.8" />
+                  <stop offset="100%" stopColor="#D9A441" stopOpacity="0.3" />
+                </linearGradient>
+              </defs>
+            </svg>
 
-        {/* Central Hub Node */}
-        {currentSite && (
-          <div className="central-hub-node">
-            <div className="center-node-outer-glow">
-              <div className="center-node-circle">
-                <img
-                  src="https://images.unsplash.com/photo-1588096344356-9a425330a1c1?auto=format&fit=crop&w=200&q=80"
-                  alt={currentSite.name}
-                  className="center-node-img"
-                />
+            {/* Central Hub Node */}
+            {currentSite && (
+              <div className="central-hub-node">
+                <div className="center-node-outer-glow">
+                  <div className="center-node-circle">
+                    <Landmark className="w-7 h-7 text-amber-300" />
+                  </div>
+                </div>
+                <span className="center-node-label">{currentSite.name}</span>
+                <span className="center-node-type">Focus Monument</span>
               </div>
-            </div>
-            <span className="center-node-label">{currentSite.name}</span>
+            )}
+
+            {/* Orbital Satellite Nodes */}
+            {orbitalNodes.map((node, idx) => {
+              const posStyle = satellitePositions[idx] || {};
+              return (
+                <div
+                  key={node.id}
+                  className={`orbital-node quadrant-${idx} ${
+                    node.targetSite ? "interactive" : ""
+                  }`}
+                  style={posStyle}
+                  onClick={() => {
+                    if (node.targetSite) {
+                      onSelectConnectedSite(node.targetSite);
+                    }
+                  }}
+                  title={
+                    node.targetSite
+                      ? `Inspect relationship: ${node.relationshipType}`
+                      : node.label
+                  }
+                >
+                  <div className="orbital-node-circle">
+                    <Link2 className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <span className="orbital-node-label">{node.label}</span>
+                  <span className="orbital-node-rel-badge">
+                    {node.relationshipType}
+                  </span>
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          <div className="graph-empty-state">
+            <Network className="w-8 h-8 text-amber-400/60 mb-2" />
+            <h5 className="text-white font-semibold text-sm">
+              No Documented Connections
+            </h5>
+            <p className="text-xs text-gray-400 max-w-xs text-center mt-1">
+              {currentSite?.name} currently has no recorded direct connections in
+              the verified 8-connection national baseline.
+            </p>
           </div>
         )}
-
-        {/* Orbital Satellite Nodes */}
-        {orbitalNodes.map((node, idx) => {
-          const posStyle = satellitePositions[idx] || {};
-          return (
-            <div
-              key={node.id}
-              className={`orbital-node quadrant-${idx} ${
-                node.targetSite ? "interactive" : ""
-              }`}
-              style={posStyle}
-              onClick={() => {
-                if (node.targetSite) {
-                  onSelectConnectedSite(node.targetSite);
-                }
-              }}
-              title={node.targetSite ? `Explore ${node.label}` : node.label}
-            >
-              <div className="orbital-node-circle">
-                <img
-                  src={`https://images.unsplash.com/photo-${
-                    idx === 0
-                      ? "1590050752117-238cb0fb12b1"
-                      : idx === 1
-                      ? "1548013146-72479768bada"
-                      : idx === 2
-                      ? "1564507592333-c60657eea523"
-                      : "1600100397608-f010f44390b2"
-                  }?auto=format&fit=crop&w=150&q=80`}
-                  alt={node.label}
-                  className="orbital-node-img"
-                />
-              </div>
-              <span className="orbital-node-label">{node.label}</span>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

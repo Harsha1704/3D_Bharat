@@ -2317,3 +2317,158 @@ body, html {
   background: rgba(34, 197, 94, 0.15);
   color: #86efac;
 }
+
+
+/* =========================================================
+   PHASE 7.1 QUALITY & TRUTHFUL DASHBOARD REFINEMENTS
+========================================================= */
+
+.metric-subtext {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.metric-badge.verified {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+}
+
+.metric-badge.neutral {
+  color: var(--gold-light);
+  background: rgba(217, 164, 65, 0.12);
+  border: 1px solid rgba(217, 164, 65, 0.25);
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+}
+
+/* 3D Digital Preservation Empty State */
+.three-d-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  text-align: center;
+  background: radial-gradient(circle at center, rgba(217, 164, 65, 0.05) 0%, transparent 70%);
+}
+
+.empty-state-icon-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(217, 164, 65, 0.12);
+  border: 1px solid var(--border-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  box-shadow: 0 0 16px var(--gold-glow);
+}
+
+.empty-state-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 6px 0;
+}
+
+.empty-state-desc {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  max-width: 320px;
+  margin: 0 0 14px 0;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-empty-action {
+  background: linear-gradient(90deg, #d9a441 0%, #ffc857 100%);
+  color: #070b13;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: none;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: filter 0.15s ease;
+}
+
+.btn-empty-action:hover {
+  filter: brightness(1.1);
+}
+
+.pipeline-status-badge {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+/* AI Assistant Message Source Citation */
+.message-citation {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.68rem;
+  color: var(--gold-light);
+  font-style: italic;
+}
+
+/* Knowledge Graph Refinements */
+.center-node-type {
+  font-size: 0.62rem;
+  color: var(--gold-light);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.orbital-node-rel-badge {
+  font-size: 0.6rem;
+  color: var(--gold-light);
+  background: rgba(217, 164, 65, 0.12);
+  border: 1px solid rgba(217, 164, 65, 0.25);
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-top: 2px;
+  max-width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.graph-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+/* Loading Top Bar */
+.top-loading-indicator {
+  display: flex;
+  align-items: center;
+  background: rgba(217, 164, 65, 0.12);
+  border: 1px solid var(--border-subtle);
+  color: var(--gold-light);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+}

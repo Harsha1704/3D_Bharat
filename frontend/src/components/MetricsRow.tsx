@@ -1,20 +1,20 @@
 import React from "react";
-import { Landmark, MapPin, Box, Sparkles, TrendingUp } from "lucide-react";
+import { Landmark, MapPin, Box, BookOpen, CheckCircle } from "lucide-react";
 
 interface MetricsRowProps {
   totalSites: number;
-  statesCovered: number;
+  distinctStatesCount: number;
+  coveredRegionsCount: number;
   total3dModels: number;
-  provenanceAccuracy?: number; // e.g. 98 or 100
-  totalConnections?: number;
+  totalSources: number;
 }
 
 export const MetricsRow: React.FC<MetricsRowProps> = ({
   totalSites,
-  statesCovered,
+  distinctStatesCount,
+  coveredRegionsCount,
   total3dModels,
-  provenanceAccuracy = 98,
-  totalConnections = 8,
+  totalSources,
 }) => {
   return (
     <section className="metrics-row" aria-label="National Heritage Metrics">
@@ -27,27 +27,18 @@ export const MetricsRow: React.FC<MetricsRowProps> = ({
           <div className="metric-details">
             <div className="metric-number-row">
               <span className="metric-value">{totalSites.toLocaleString()}</span>
-              <span className="metric-badge positive">
-                <TrendingUp className="w-3 h-3 inline mr-0.5" />
-                +12%
+              <span className="metric-badge verified">
+                <CheckCircle className="w-3 h-3 inline mr-1 text-emerald-400" />
+                Verified
               </span>
             </div>
-            <span className="metric-label">Heritage Sites</span>
+            <span className="metric-label">Heritage Sites Documented</span>
+            <span className="metric-subtext">Centrally Protected & ASI Baseline</span>
           </div>
-        </div>
-        <div className="metric-sparkline">
-          <svg viewBox="0 0 100 24" fill="none" className="sparkline-svg">
-            <path
-              d="M0 20 Q 25 15, 50 12 T 75 8 T 100 4"
-              stroke="#22c55e"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
         </div>
       </div>
 
-      {/* Card 2: States Covered */}
+      {/* Card 2: States / UTs Represented */}
       <div className="metric-card">
         <div className="metric-content">
           <div className="metric-icon-box gold-glow">
@@ -55,28 +46,18 @@ export const MetricsRow: React.FC<MetricsRowProps> = ({
           </div>
           <div className="metric-details">
             <div className="metric-number-row">
-              <span className="metric-value">{statesCovered || 17}</span>
-              <span className="metric-badge positive">
-                <TrendingUp className="w-3 h-3 inline mr-0.5" />
-                +1
+              <span className="metric-value">{distinctStatesCount}</span>
+              <span className="metric-badge neutral">
+                {coveredRegionsCount} / 36 Ingestion Regions
               </span>
             </div>
-            <span className="metric-label">States Covered</span>
+            <span className="metric-label">States / UTs Represented</span>
+            <span className="metric-subtext">Out of 36 Indian States & UTs</span>
           </div>
-        </div>
-        <div className="metric-sparkline">
-          <svg viewBox="0 0 100 24" fill="none" className="sparkline-svg">
-            <path
-              d="M0 18 Q 30 18, 55 10 T 80 12 T 100 6"
-              stroke="#22c55e"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
         </div>
       </div>
 
-      {/* Card 3: 3D Models */}
+      {/* Card 3: Registered 3D Models */}
       <div className="metric-card">
         <div className="metric-content">
           <div className="metric-icon-box gold-glow">
@@ -84,55 +65,32 @@ export const MetricsRow: React.FC<MetricsRowProps> = ({
           </div>
           <div className="metric-details">
             <div className="metric-number-row">
-              <span className="metric-value">
-                {total3dModels > 0 ? total3dModels : 342}
-              </span>
-              <span className="metric-badge positive">
-                <TrendingUp className="w-3 h-3 inline mr-0.5" />
-                +18%
-              </span>
+              <span className="metric-value">{total3dModels}</span>
+              <span className="metric-badge neutral">Pipeline Ready</span>
             </div>
-            <span className="metric-label">3D Models</span>
+            <span className="metric-label">Registered 3D Models</span>
+            <span className="metric-subtext">GLB • GLTF • OBJ • SPLAT Intake</span>
           </div>
-        </div>
-        <div className="metric-sparkline">
-          <svg viewBox="0 0 100 24" fill="none" className="sparkline-svg">
-            <path
-              d="M0 22 Q 20 18, 45 14 T 75 10 T 100 2"
-              stroke="#22c55e"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
         </div>
       </div>
 
-      {/* Card 4: AI Insights Accuracy */}
+      {/* Card 4: Archival Sources & Provenance */}
       <div className="metric-card">
         <div className="metric-content">
           <div className="metric-icon-box gold-glow">
-            <Sparkles className="metric-icon text-amber-400" />
+            <BookOpen className="metric-icon text-amber-400" />
           </div>
           <div className="metric-details">
             <div className="metric-number-row">
-              <span className="metric-value">{provenanceAccuracy}%</span>
-              <span className="metric-badge positive" title={`${totalConnections} documented connections`}>
-                <TrendingUp className="w-3 h-3 inline mr-0.5" />
-                +2%
+              <span className="metric-value">{totalSources}</span>
+              <span className="metric-badge verified">
+                <CheckCircle className="w-3 h-3 inline mr-1 text-emerald-400" />
+                100% Sourced
               </span>
             </div>
-            <span className="metric-label">AI Insights Accuracy</span>
+            <span className="metric-label">Archival Sources</span>
+            <span className="metric-subtext">ASI & UNESCO Primary Citations</span>
           </div>
-        </div>
-        <div className="metric-sparkline">
-          <svg viewBox="0 0 100 24" fill="none" className="sparkline-svg">
-            <path
-              d="M0 16 Q 30 16, 50 12 T 80 8 T 100 3"
-              stroke="#22c55e"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
         </div>
       </div>
     </section>

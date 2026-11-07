@@ -11,53 +11,70 @@ export const HeritageAnalytics: React.FC<HeritageAnalyticsProps> = ({
   sites,
   onViewDetails,
 }) => {
-  // Compute category breakdown from live sites or fallback to design baseline
+  // Compute category breakdown from actual loaded database records
   const categoryStats = useMemo(() => {
     if (!sites || sites.length === 0) {
-      return [
-        { label: "Temples", pct: 42, color: "#e5ad55" },
-        { label: "Monuments", pct: 28, color: "#38bdf8" },
-        { label: "Stupas", pct: 15, color: "#3b82f6" },
-        { label: "Forts", pct: 10, color: "#fb923c" },
-        { label: "Others", pct: 5, color: "#facc15" },
-      ];
+      return [];
     }
 
     const counts: Record<string, number> = {
-      Temples: 0,
-      Monuments: 0,
-      Stupas: 0,
-      Forts: 0,
-      Others: 0,
+      "Temples & Shrines": 0,
+      "Forts & Fortresses": 0,
+      "Stupas & Archaeology": 0,
+      "Stepwells": 0,
+      "Rock-cut Caves": 0,
+      "Mausoleums & Tombs": 0,
     };
+
+    let otherCount = 0;
 
     for (const site of sites) {
       const cat = (site.category || "").toLowerCase();
-      if (cat.includes("temple")) counts.Temples++;
-      else if (cat.includes("monument") || cat.includes("tomb") || cat.includes("mausoleum")) counts.Monuments++;
-      else if (cat.includes("stupa") || cat.includes("cave")) counts.Stupas++;
-      else if (cat.includes("fort") || cat.includes("citadel")) counts.Forts++;
-      else counts.Others++;
+      if (cat.includes("temple") || cat.includes("shrine")) {
+        counts["Temples & Shrines"]++;
+      } else if (cat.includes("fort") || cat.includes("citadel") || cat.includes("fortress")) {
+        counts["Forts & Fortresses"]++;
+      } else if (cat.includes("stupa") || cat.includes("archaeological")) {
+        counts["Stupas & Archaeology"]++;
+      } else if (cat.includes("stepwell")) {
+        counts["Stepwells"]++;
+      } else if (cat.includes("cave") || cat.includes("rock-cut")) {
+        counts["Rock-cut Caves"]++;
+      } else if (cat.includes("mausoleum") || cat.includes("tomb")) {
+        counts["Mausoleums & Tombs"]++;
+      } else {
+        otherCount++;
+      }
     }
 
     const total = sites.length;
-    return [
-      { label: "Temples", pct: Math.max(1, Math.round((counts.Temples / total) * 100)), color: "#e5ad55" },
-      { label: "Monuments", pct: Math.max(1, Math.round((counts.Monuments / total) * 100)), color: "#38bdf8" },
-      { label: "Stupas", pct: Math.max(1, Math.round((counts.Stupas / total) * 100)), color: "#3b82f6" },
-      { label: "Forts", pct: Math.max(1, Math.round((counts.Forts / total) * 100)), color: "#fb923c" },
-      { label: "Others", pct: Math.max(1, Math.round((counts.Others / total) * 100)), color: "#facc15" },
-    ];
+    const colors = ["#e5ad55", "#38bdf8", "#3b82f6", "#fb923c", "#10b981", "#a855f7", "#94a3b8"];
+
+    const items = Object.entries(counts)
+      .filter(([_, count]) => count > 0)
+      .map(([label, count], idx) => ({
+        label,
+        count,
+        pct: Math.round((count / total) * 100),
+        color: colors[idx % colors.length],
+      }));
+
+    if (otherCount > 0) {
+      items.push({
+        label: "Others / Regional",
+        count: otherCount,
+        pct: Math.round((otherCount / total) * 100),
+        color: colors[items.length % colors.length],
+      });
+    }
+
+    return items;
   }, [sites]);
 
-  // Compute Era breakdown
+  // Compute Era breakdown from actual recorded periods
   const eraStats = useMemo(() => {
     if (!sites || sites.length === 0) {
-      return [
-        { label: "Ancient", pct: 35, height: "65%" },
-        { label: "Medieval", pct: 45, height: "85%" },
-        { label: "Modern", pct: 20, height: "45%" },
-      ];
+      return [];
     }
 
     let ancient = 0;
@@ -66,28 +83,45 @@ export const HeritageAnalytics: React.FC<HeritageAnalyticsProps> = ({
 
     for (const site of sites) {
       const p = (site.period || "").toLowerCase();
-      if (p.includes("ancient") || p.includes("bce") || p.includes("maurya") || p.includes("gupta")) {
+      if (
+        p.includes("bce") ||
+        p.includes("3000 bce") ||
+        p.includes("maurya") ||
+        p.includes("gupta") ||
+        p.includes("3rd century bce") ||
+        p.includes("2nd century bce") ||
+        p.includes("5th century bce") ||
+        p.includes("6th century bce")
+      ) {
         ancient++;
-      } else if (p.includes("medieval") || p.includes("chola") || p.includes("mughal") || p.includes("sultanate") || p.includes("vijayanagara")) {
-        medieval++;
-      } else {
+      } else if (
+        p.includes("17th century") ||
+        p.includes("18th century") ||
+        p.includes("19th century") ||
+        p.includes("1631") ||
+        p.includes("mughal")
+      ) {
         modern++;
+      } else {
+        // 7th to 16th Century CE / Chola / Vijayanagara / Chandela / Kakatiya / Hoysala
+        medieval++;
       }
     }
 
     const total = sites.length;
-    const aPct = Math.round((ancient / total) * 100) || 35;
-    const mPct = Math.round((medieval / total) * 100) || 45;
-    const modPct = Math.max(5, 100 - aPct - mPct) || 20;
+    const aPct = Math.round((ancient / total) * 100);
+    const mPct = Math.round((medieval / total) * 100);
+    const modPct = 100 - aPct - mPct;
 
     return [
-      { label: "Ancient", pct: aPct, height: `${Math.min(100, Math.max(25, aPct * 1.8))}%` },
-      { label: "Medieval", pct: mPct, height: `${Math.min(100, Math.max(30, mPct * 1.8))}%` },
-      { label: "Modern", pct: modPct, height: `${Math.min(100, Math.max(20, modPct * 1.8))}%` },
+      { label: "Ancient", count: ancient, pct: aPct, height: `${Math.min(100, Math.max(20, aPct * 1.5))}%` },
+      { label: "Medieval", count: medieval, pct: mPct, height: `${Math.min(100, Math.max(20, mPct * 1.2))}%` },
+      { label: "Modern", count: modern, pct: modPct, height: `${Math.min(100, Math.max(15, modPct * 2.5))}%` },
     ];
   }, [sites]);
 
-  const displayTotal = sites.length > 0 ? sites.length.toLocaleString() : "2,853";
+  const totalSitesCount = sites.length;
+  const CIRCUMFERENCE = 289; // 2 * PI * 46
 
   return (
     <div className="bottom-panel-card analytics-panel">
@@ -117,79 +151,48 @@ export const HeritageAnalytics: React.FC<HeritageAnalyticsProps> = ({
                 strokeWidth="14"
                 fill="none"
               />
-              {/* Slices via SVG stroke-dasharray */}
-              {/* Segment 1: Temples (42%) */}
-              <circle
-                cx="60"
-                cy="60"
-                r="46"
-                stroke="#e5ad55"
-                strokeWidth="14"
-                strokeDasharray="121 289"
-                strokeDashoffset="0"
-                fill="none"
-              />
-              {/* Segment 2: Monuments (28%) */}
-              <circle
-                cx="60"
-                cy="60"
-                r="46"
-                stroke="#38bdf8"
-                strokeWidth="14"
-                strokeDasharray="81 289"
-                strokeDashoffset="-121"
-                fill="none"
-              />
-              {/* Segment 3: Stupas (15%) */}
-              <circle
-                cx="60"
-                cy="60"
-                r="46"
-                stroke="#3b82f6"
-                strokeWidth="14"
-                strokeDasharray="43 289"
-                strokeDashoffset="-202"
-                fill="none"
-              />
-              {/* Segment 4: Forts (10%) */}
-              <circle
-                cx="60"
-                cy="60"
-                r="46"
-                stroke="#fb923c"
-                strokeWidth="14"
-                strokeDasharray="29 289"
-                strokeDashoffset="-245"
-                fill="none"
-              />
-              {/* Segment 5: Others (5%) */}
-              <circle
-                cx="60"
-                cy="60"
-                r="46"
-                stroke="#facc15"
-                strokeWidth="14"
-                strokeDasharray="15 289"
-                strokeDashoffset="-274"
-                fill="none"
-              />
+              {/* Dynamic Slices based on actual category percentages */}
+              {(() => {
+                let accumulatedOffset = 0;
+                return categoryStats.map((item) => {
+                  const strokeLength = (item.pct / 100) * CIRCUMFERENCE;
+                  const currentOffset = accumulatedOffset;
+                  accumulatedOffset += strokeLength;
+
+                  return (
+                    <circle
+                      key={item.label}
+                      cx="60"
+                      cy="60"
+                      r="46"
+                      stroke={item.color}
+                      strokeWidth="14"
+                      strokeDasharray={`${strokeLength} ${CIRCUMFERENCE}`}
+                      strokeDashoffset={-currentOffset}
+                      fill="none"
+                    />
+                  );
+                });
+              })()}
             </svg>
             <div className="donut-center-text">
-              <span className="donut-total-count">{displayTotal}</span>
+              <span className="donut-total-count">{totalSitesCount}</span>
               <span className="donut-total-label">Total Sites</span>
             </div>
           </div>
 
           {/* Legend */}
           <div className="category-legend">
-            {categoryStats.map((item) => (
+            {categoryStats.slice(0, 4).map((item) => (
               <div key={item.label} className="legend-row">
                 <span
                   className="legend-color-dot"
                   style={{ backgroundColor: item.color }}
                 />
                 <span className="legend-label">{item.label}</span>
-                <span className="legend-pct">{item.pct}%</span>
+                <span className="legend-pct">
+                  {item.pct}% ({item.count})
+                </span>
               </div>
             ))}
           </div>
@@ -197,10 +200,10 @@ export const HeritageAnalytics: React.FC<HeritageAnalyticsProps> = ({
 
         {/* Right: By Era Bar Chart */}
         <div className="bar-chart-section">
-          <span className="bar-chart-title">By Era</span>
+          <span className="bar-chart-title">By Era (CE/BCE)</span>
           <div className="bar-columns-container">
             {eraStats.map((era) => (
-              <div key={era.label} className="bar-column">
+              <div key={era.label} className="bar-column" title={`${era.count} sites recorded`}>
                 <span className="bar-value-label">{era.pct}%</span>
                 <div className="bar-track">
                   <div

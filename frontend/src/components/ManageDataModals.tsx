@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Loader2,
   Play,
+  ShieldCheck,
 } from "lucide-react";
 import {
   createHeritageSite,
@@ -56,7 +57,17 @@ export const AddSiteModal: React.FC<AddSiteModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.state.trim()) {
-      setStatusMsg({ type: "error", text: "Name and State are required." });
+      setStatusMsg({ type: "error", text: "Name and State are required fields." });
+      return;
+    }
+
+    if (
+      typeof formData.latitude !== "number" ||
+      typeof formData.longitude !== "number" ||
+      isNaN(formData.latitude) ||
+      isNaN(formData.longitude)
+    ) {
+      setStatusMsg({ type: "error", text: "Valid coordinates (latitude and longitude) are required." });
       return;
     }
 
@@ -65,16 +76,24 @@ export const AddSiteModal: React.FC<AddSiteModalProps> = ({
 
     try {
       await createHeritageSite(formData);
-      setStatusMsg({ type: "success", text: "Heritage site registered successfully!" });
+      setStatusMsg({ type: "success", text: "Heritage monument registered in national database!" });
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 1200);
     } catch (err: any) {
-      setStatusMsg({
-        type: "error",
-        text: err.message || "Failed to create site.",
-      });
+      const msg = err.message || "";
+      if (msg.includes("401") || msg.includes("503") || msg.includes("Unauthorized")) {
+        setStatusMsg({
+          type: "error",
+          text: "Write Access Restricted: Registration requires authorized administrator permissions under the preservation security policy.",
+        });
+      } else {
+        setStatusMsg({
+          type: "error",
+          text: msg || "Failed to register site. Verify inputs and database status.",
+        });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -88,9 +107,12 @@ export const AddSiteModal: React.FC<AddSiteModalProps> = ({
             <div className="tile-icon-circle green">
               <Plus className="w-5 h-5 text-emerald-400" />
             </div>
-            <h3 className="modal-title">Register New Heritage Site</h3>
+            <div>
+              <h3 className="modal-title">Register New Heritage Site</h3>
+              <p className="modal-subtitle">Direct intake into the verified national inventory</p>
+            </div>
           </div>
-          <button className="dossier-close-btn" onClick={onClose}>
+          <button className="dossier-close-btn" onClick={onClose} aria-label="Close modal">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
@@ -119,7 +141,7 @@ export const AddSiteModal: React.FC<AddSiteModalProps> = ({
               />
             </div>
             <div className="form-group flex-1">
-              <label>State *</label>
+              <label>State / UT *</label>
               <input
                 type="text"
                 required
@@ -137,12 +159,13 @@ export const AddSiteModal: React.FC<AddSiteModalProps> = ({
                 value={formData.category || "temple"}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               >
-                <option value="temple">Temple</option>
+                <option value="temple">Temple & Shrine</option>
                 <option value="monument">Monument / Mausoleum</option>
                 <option value="fort">Fort & Citadel</option>
-                <option value="stupa">Stupa / Buddhist</option>
+                <option value="stupa">Stupa Complex</option>
                 <option value="cave">Rock-cut Cave</option>
-                <option value="palace">Palace</option>
+                <option value="stepwell">Stepwell</option>
+                <option value="archaeological">Archaeological Site</option>
               </select>
             </div>
             <div className="form-group flex-1">
@@ -151,39 +174,41 @@ export const AddSiteModal: React.FC<AddSiteModalProps> = ({
                 type="text"
                 value={formData.period || ""}
                 onChange={(e) => setFormData({ ...formData, period: e.target.value })}
-                placeholder="e.g. 7th Century CE / Pandya"
+                placeholder="e.g. 7th Century CE / Pandya Dynasty"
               />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group flex-1">
-              <label>Latitude</label>
+              <label>Latitude (Decimal Degrees) *</label>
               <input
                 type="number"
                 step="0.0001"
-                value={formData.latitude || ""}
+                required
+                value={formData.latitude ?? ""}
                 onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
               />
             </div>
             <div className="form-group flex-1">
-              <label>Longitude</label>
+              <label>Longitude (Decimal Degrees) *</label>
               <input
                 type="number"
                 step="0.0001"
-                value={formData.longitude || ""}
+                required
+                value={formData.longitude ?? ""}
                 onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
               />
             </div>
           </div>
 
           <div className="form-group">
-            <label>Historical Description</label>
+            <label>Historical Description & Provenance</label>
             <textarea
               rows={3}
               value={formData.description || ""}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Significance, architectural craftsmanship and provenance..."
+              placeholder="Significance, architectural craftsmanship, and archival citations..."
             />
           </div>
 
@@ -198,7 +223,7 @@ export const AddSiteModal: React.FC<AddSiteModalProps> = ({
                   Saving...
                 </>
               ) : (
-                "Save Site"
+                "Save Monument"
               )}
             </button>
           </div>
@@ -222,7 +247,7 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({ isOpen, onClose }) =
   const [tracker, setTracker] = useState<StateTrackerResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [runningBaseline, setRunningBaseline] = useState(false);
-  const [baselineMsg, setBaselineMsg] = useState<string | null>(null);
+  const [baselineMsg, setBaselineMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -243,9 +268,23 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({ isOpen, onClose }) =
     setBaselineMsg(null);
     try {
       const res: any = await runBaselineIngestion(source, true);
-      setBaselineMsg(`Dry-run for ${source.toUpperCase()} successful: ${res.total_records} records verified.`);
+      setBaselineMsg({
+        type: "success",
+        text: `Pipeline Verification Passed (${source.toUpperCase()}): ${res.total_records} records parsed with 0 database mutations (dry-run).`,
+      });
     } catch (err: any) {
-      setBaselineMsg(`Error running ${source}: ${err.message}`);
+      const msg = err.message || "";
+      if (msg.includes("401") || msg.includes("503")) {
+        setBaselineMsg({
+          type: "error",
+          text: "Privileged Execution Policy: Pipeline execution requires backend server authorization key.",
+        });
+      } else {
+        setBaselineMsg({
+          type: "error",
+          text: `Pipeline check error: ${msg}`,
+        });
+      }
     } finally {
       setRunningBaseline(false);
     }
@@ -260,20 +299,24 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({ isOpen, onClose }) =
               <FileText className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <h3 className="modal-title">National Heritage Ingestion & Scalability Reports</h3>
-              <p className="modal-subtitle">ASI Centrally Protected & UNESCO World Heritage Pipeline Logs</p>
+              <h3 className="modal-title">National Ingestion & Scalability Reports</h3>
+              <p className="modal-subtitle">ASI Centrally Protected & UNESCO World Heritage Import Audit</p>
             </div>
           </div>
-          <button className="dossier-close-btn" onClick={onClose}>
+          <button className="dossier-close-btn" onClick={onClose} aria-label="Close modal">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
         <div className="reports-modal-body">
           {baselineMsg && (
-            <div className="status-banner success mb-4">
-              <CheckCircle className="w-4 h-4 inline mr-2 text-emerald-400" />
-              <span>{baselineMsg}</span>
+            <div className={`status-banner ${baselineMsg.type} mb-4`}>
+              {baselineMsg.type === "success" ? (
+                <CheckCircle className="w-4 h-4 inline mr-2 text-emerald-400" />
+              ) : (
+                <AlertCircle className="w-4 h-4 inline mr-2 text-red-400" />
+              )}
+              <span>{baselineMsg.text}</span>
             </div>
           )}
 
@@ -285,13 +328,13 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({ isOpen, onClose }) =
                 <span className="cov-val">{tracker.summary.total_states_and_uts}</span>
               </div>
               <div className="cov-stat">
-                <span className="cov-label">Covered Regions</span>
+                <span className="cov-label">Ingestion Regions Tracked</span>
                 <span className="cov-val text-amber-400">
                   {tracker.summary.states_with_baseline_or_completed} / 36
                 </span>
               </div>
               <div className="cov-stat">
-                <span className="cov-label">Estimated National Monuments</span>
+                <span className="cov-label">Estimated National Baseline</span>
                 <span className="cov-val">{tracker.summary.total_estimated_national_monuments}</span>
               </div>
               <div className="cov-stat">
@@ -303,16 +346,19 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({ isOpen, onClose }) =
             </div>
           )}
 
-          {/* Actions */}
+          {/* Pipeline Dry-Run Verification */}
           <div className="dry-run-actions-bar">
-            <span>Verify Baseline Pipeline:</span>
+            <span className="font-semibold text-xs text-amber-300">
+              <ShieldCheck className="w-3.5 h-3.5 inline mr-1" />
+              Pipeline Safety Drill:
+            </span>
             <button
               className="btn-dry-run"
               onClick={() => handleRunBaselineDryRun("unesco")}
               disabled={runningBaseline}
             >
               <Play className="w-3.5 h-3.5 inline mr-1" />
-              UNESCO Baseline Dry-Run
+              Test UNESCO Adapter (Dry-Run)
             </button>
             <button
               className="btn-dry-run"
@@ -320,12 +366,12 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({ isOpen, onClose }) =
               disabled={runningBaseline}
             >
               <Play className="w-3.5 h-3.5 inline mr-1" />
-              ASI Baseline Dry-Run
+              Test ASI Adapter (Dry-Run)
             </button>
           </div>
 
           {/* Batches Table */}
-          <h4 className="section-heading mt-4 mb-2">Ingestion Batch Execution History</h4>
+          <h4 className="section-heading mt-4 mb-2">Ingestion Batch Execution History ({batches.length} Batches)</h4>
           {loading ? (
             <div className="loading-state">
               <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />

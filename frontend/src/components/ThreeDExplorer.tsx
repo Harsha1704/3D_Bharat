@@ -1,19 +1,17 @@
 import React from "react";
-import { Box, ArrowRight, Play } from "lucide-react";
-import type { HeritageSite } from "../api";
+import { Box, ArrowRight, UploadCloud, ShieldCheck } from "lucide-react";
+import type { Heritage3DAsset } from "../api";
 
 interface ThreeDExplorerProps {
-  selectedSite: HeritageSite | null;
+  assets3D?: Heritage3DAsset[];
   onExplore3D: () => void;
 }
 
 export const ThreeDExplorer: React.FC<ThreeDExplorerProps> = ({
-  selectedSite,
+  assets3D = [],
   onExplore3D,
 }) => {
-  const monumentTitle = selectedSite
-    ? selectedSite.name
-    : "Konark Sun Temple";
+  const hasModels = assets3D.length > 0;
 
   return (
     <div className="bottom-panel-card three-d-panel">
@@ -21,57 +19,49 @@ export const ThreeDExplorer: React.FC<ThreeDExplorerProps> = ({
       <div className="panel-header">
         <div className="panel-title-group">
           <Box className="panel-icon text-amber-400" />
-          <h3 className="panel-title">3D Exploration</h3>
+          <h3 className="panel-title">3D Digital Preservation</h3>
         </div>
         <button className="panel-action-link" onClick={onExplore3D}>
-          <span>View All</span>
+          <span>{hasModels ? "View Assets" : "Pipeline Info"}</span>
           <ArrowRight className="w-4 h-4 ml-1 inline" />
         </button>
       </div>
 
-      {/* 3D Showcase Card */}
-      <div className="three-d-hero-card" onClick={onExplore3D}>
-        <img
-          src="https://images.unsplash.com/photo-1600100397608-f010f44390b2?auto=format&fit=crop&w=800&q=80"
-          alt={monumentTitle}
-          className="three-d-cover-img"
-        />
-
-        {/* 360 Degree Floating Badge */}
-        <div className="three-sixty-badge">
-          <svg className="three-sixty-icon" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="#FFC857" strokeWidth="1.5" strokeDasharray="3 3" />
-            <path d="M12 7 L15 10 L12 13" fill="none" stroke="#FFC857" strokeWidth="1.5" />
-          </svg>
-          <span>360°</span>
-        </div>
-
-        {/* Central Play / Orbit Button Overlay */}
-        <div className="three-d-play-overlay">
-          <button className="play-pulse-btn" aria-label="Start 3D Tour">
-            <Play className="w-6 h-6 text-amber-900 fill-amber-900 ml-0.5" />
-          </button>
-        </div>
-
-        {/* Bottom Banner Info */}
-        <div className="three-d-card-caption">
-          <div className="caption-left">
-            <div className="caption-title-row">
-              <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400 mr-1.5" />
-              <span className="caption-headline">Explore in 3D</span>
+      {/* 3D Showcase or Honest Pipeline Empty State */}
+      {hasModels ? (
+        <div className="three-d-hero-card" onClick={onExplore3D}>
+          <div className="three-d-card-caption">
+            <div className="caption-left">
+              <span className="caption-headline">{assets3D[0].title}</span>
+              <p className="caption-subline">
+                Format: {assets3D[0].file_format.toUpperCase()} • {assets3D[0].vertex_count || 0} Vertices
+              </p>
             </div>
-            <p className="caption-subline">
-              Virtual Tour of {monumentTitle}
-            </p>
-          </div>
-          <div className="format-tags">
-            <span className="format-pill">GLB</span>
-            <span className="format-pill">GLTF</span>
-            <span className="format-pill">OBJ</span>
-            <span className="format-pill">SPLAT</span>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="three-d-empty-state">
+          <div className="empty-state-icon-ring">
+            <Box className="w-8 h-8 text-amber-400" />
+          </div>
+          <h4 className="empty-state-title">No 3D Models Registered Yet</h4>
+          <p className="empty-state-desc">
+            The national 3D photogrammetry intake is active and ready to register
+            verified scans (GLB, GLTF, OBJ with MTL companions, and SPLAT)
+            under the Phase 4 preservation standard.
+          </p>
+          <div className="empty-state-actions">
+            <button className="btn-empty-action" onClick={onExplore3D}>
+              <UploadCloud className="w-3.5 h-3.5 mr-1.5 inline" />
+              <span>Register 3D Scan</span>
+            </button>
+            <span className="pipeline-status-badge">
+              <ShieldCheck className="w-3 h-3 mr-1 inline text-emerald-400" />
+              Ingestion Ready (0 / 0 Assets)
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

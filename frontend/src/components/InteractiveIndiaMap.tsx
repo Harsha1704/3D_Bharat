@@ -243,7 +243,7 @@ export const InteractiveIndiaMap: React.FC<InteractiveIndiaMapProps> = ({
           </div>
         )}
 
-        {/* Bottom Map Status Indicators matching reference */}
+        {/* Bottom Map Status Indicators */}
         <div className="map-bottom-pills">
           <div className="status-pill live">
             <span className="pulse-indicator" />
@@ -253,7 +253,7 @@ export const InteractiveIndiaMap: React.FC<InteractiveIndiaMapProps> = ({
           <div className="status-pill count">
             <BookOpen className="w-3.5 h-3.5 text-amber-400 mr-1.5" />
             <span className="pill-text">
-              {sites.length > 0 ? `${sites.length.toLocaleString()} Sites` : "2,853 Sites"}
+              {sites.length} Documented Sites
             </span>
           </div>
         </div>

@@ -1,4 +1,6 @@
-const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+  "http://127.0.0.1:8000/api/v1";
 
 /* =========================================================
    TYPES
@@ -317,7 +319,8 @@ async function apiRequest<T>(
 ========================================================= */
 
 export async function getApiInfo(signal?: AbortSignal) {
-  const response = await fetch("http://127.0.0.1:8000/", { signal });
+  const rootUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "/");
+  const response = await fetch(rootUrl, { signal });
 
   if (!response.ok) {
     throw new Error(`API Error: ${response.status}`);
@@ -327,7 +330,8 @@ export async function getApiInfo(signal?: AbortSignal) {
 }
 
 export async function checkHealth(signal?: AbortSignal) {
-  const response = await fetch("http://127.0.0.1:8000/health", { signal });
+  const healthUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, "/health");
+  const response = await fetch(healthUrl, { signal });
 
   if (!response.ok) {
     throw new Error(`Health check failed: ${response.status}`);
@@ -340,9 +344,6 @@ export async function checkHealth(signal?: AbortSignal) {
    HERITAGE SITES
 ========================================================= */
 
-/**
- * Get all heritage sites
- */
 export async function getHeritageSites(
   skip = 0,
   limit = 100,
@@ -357,9 +358,6 @@ export async function getHeritageSites(
   });
 }
 
-/**
- * Get one heritage site
- */
 export async function getHeritageSite(
   siteId: number,
   signal?: AbortSignal
@@ -367,9 +365,6 @@ export async function getHeritageSite(
   return apiRequest<HeritageSite>(`/heritage-sites/${siteId}`, { signal });
 }
 
-/**
- * Get full heritage site details with eager loaded sources, media, 3D assets, and connections
- */
 export async function getHeritageSiteDetails(
   siteId: number,
   signal?: AbortSignal
@@ -380,9 +375,6 @@ export async function getHeritageSiteDetails(
   );
 }
 
-/**
- * Get related sites (categorized into documented, structured, and semantic)
- */
 export async function getRelatedHeritageSites(
   siteId: number,
   limit = 10,
@@ -395,9 +387,6 @@ export async function getRelatedHeritageSites(
   );
 }
 
-/**
- * Search heritage sites with multi-field matching
- */
 export async function searchHeritageSites(
   query: string,
   category?: string,
@@ -431,9 +420,6 @@ export async function searchHeritageSites(
   return { items: result?.items || [], total: result?.total || 0 };
 }
 
-/**
- * Bounding box discovery query for map viewports
- */
 export async function getBboxHeritageSites(
   min_lat: number,
   min_lon: number,
@@ -465,9 +451,6 @@ export async function getBboxHeritageSites(
   );
 }
 
-/**
- * Nearby sites by geographic radius
- */
 export async function getNearbySites(
   latitude: number,
   longitude: number,
@@ -488,9 +471,6 @@ export async function getNearbySites(
   });
 }
 
-/**
- * Recommendations
- */
 export async function getHeritageRecommendations(
   siteId: number,
   limit = 5,
@@ -503,9 +483,6 @@ export async function getHeritageRecommendations(
   );
 }
 
-/**
- * Create a new heritage site
- */
 export async function createHeritageSite(
   siteData: HeritageSiteCreateInput,
   signal?: AbortSignal
