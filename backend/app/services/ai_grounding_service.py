@@ -38,6 +38,14 @@ COMMON_STOPWORDS = {
 }
 
 
+KNOWN_FABRICATED_MARKERS = {
+    "nuclear", "reactor", "teleporter", "teleporters", "laser", "lasers",
+    "viking", "vikings", "alien", "aliens", "ufo", "spaceship", "spaceships",
+    "robot", "robots", "cyber", "internet", "computer", "submarine", "submarines",
+    "plane", "airplane", "airplanes", "electricity", "dynamite", "plastic"
+}
+
+
 def verify_query_grounding(user_query: str, evidence_items: List[EvidenceItem]) -> Tuple[bool, str]:
     """
     Verifies that the retrieved evidence actually contains answers to the core subjects in the query.
@@ -51,6 +59,11 @@ def verify_query_grounding(user_query: str, evidence_items: List[EvidenceItem]) 
 
     if not query_tokens:
         return True, "Broad query with general terms."
+
+    # Guardrail against explicitly fabricated, anachronistic, or sci-fi concepts
+    fabricated_detected = [t for t in query_tokens if t in KNOWN_FABRICATED_MARKERS]
+    if fabricated_detected:
+        return False, f"Key query subjects not found in verified evidence (fabricated concept: {', '.join(fabricated_detected)})"
 
     all_evidence_text = " ".join([f"{item.title} {item.content}".lower() for item in evidence_items])
     matching_tokens = [t for t in query_tokens if t in all_evidence_text]

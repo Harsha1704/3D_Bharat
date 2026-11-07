@@ -96,13 +96,32 @@ def retrieve_heritage_sites_evidence(
                 )
             )
 
-    # 2. Exact phrase / substring match against monument names
+    # 2. Exact phrase, substring, or distinctive token match against monument names
     all_sites = db.execute(select(HeritageSite)).scalars().all()
+    generic_site_tokens = {
+        "group", "monuments", "monument", "temple", "temples", "complex",
+        "caves", "fort", "stepwell", "city", "amman", "queen", "national"
+    }
+
     for site in all_sites:
         if site.id in seen_site_ids:
             continue
-        # Check if site name appears in query, or query appears in site name
-        if site.name.lower() in query_lower or (len(query_lower) > 4 and query_lower in site.name.lower()):
+        site_name_lower = site.name.lower()
+        matched = False
+
+        # Direct name containment
+        if site_name_lower in query_lower or (len(query_lower) > 4 and query_lower in site_name_lower):
+            matched = True
+        else:
+            # Match distinctive site tokens (e.g., 'pattadakal', 'ramappa', 'dholavira')
+            distinctive = [
+                w for w in re.sub(r"[^\w\s]", " ", site_name_lower).split()
+                if len(w) >= 4 and w not in generic_site_tokens
+            ]
+            if any(w in query_lower for w in distinctive):
+                matched = True
+
+        if matched:
             seen_site_ids.add(site.id)
             desc_parts = [
                 f"{site.name} ({site.category or 'Monument'}) in {site.state or 'India'}.",
@@ -128,8 +147,8 @@ def retrieve_heritage_sites_evidence(
             if len(items) >= limit:
                 return items
 
-    # 3. Fallback: Specific keywords match across name or state
-    keywords = extract_keywords(query)
+    # 3. Fallback: Specific non-generic keywords match across name or state
+    keywords = [kw for kw in extract_keywords(query) if kw not in generic_site_tokens]
     if keywords and len(items) < limit:
         conditions = []
         for kw in keywords[:4]:
