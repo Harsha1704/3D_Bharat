@@ -245,12 +245,15 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({
     const count = satellites.length;
     if (count === 0) return posMap;
 
-    // Arrange nodes in concentric rings by hops or uniform angle
-    const radius = isExpanded ? 180 : 130;
+    // Multi-orbit concentric distribution to prevent node overlap & canvas clipping
+    const baseRadius = isExpanded ? 190 : 115;
+    const outerRadius = isExpanded ? 260 : 145;
     satellites.forEach((node, i) => {
+      const isStaggered = count > 5 && i % 2 === 1;
+      const r = isStaggered ? outerRadius : baseRadius;
       const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-      const x = Math.round(radius * Math.cos(angle));
-      const y = Math.round(radius * Math.sin(angle));
+      const x = Math.round(r * Math.cos(angle));
+      const y = Math.round(r * Math.sin(angle));
       posMap.set(node.id, { x, y });
     });
 

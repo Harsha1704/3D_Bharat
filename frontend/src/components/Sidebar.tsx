@@ -1,22 +1,28 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   LayoutDashboard,
+  Compass,
   MapPin,
   Network,
   Bot,
   Box,
-  BarChart3,
   ShieldCheck,
+  BarChart3,
+  Database,
   Settings,
+  ChevronLeft,
+  ChevronRight,
   X,
 } from "lucide-react";
 
 export type NavTab =
   | "dashboard"
+  | "explorer"
   | "map"
   | "graph"
   | "assistant"
   | "3d"
+  | "coverage"
   | "analytics"
   | "management"
   | "settings";
@@ -28,15 +34,24 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
-const navItems: { id: NavTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "map", label: "Heritage Map", icon: MapPin },
-  { id: "graph", label: "Knowledge Graph", icon: Network },
-  { id: "assistant", label: "AI Assistant", icon: Bot },
+interface NavItemConfig {
+  id: NavTab;
+  label: string;
+  badge?: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const navItems: NavItemConfig[] = [
+  { id: "dashboard", label: "Command Centre", icon: LayoutDashboard },
+  { id: "explorer", label: "Heritage Explorer", badge: "22", icon: Compass },
+  { id: "map", label: "India Heritage Map", icon: MapPin },
+  { id: "graph", label: "Knowledge Graph", badge: "44", icon: Network },
+  { id: "assistant", label: "AI Intelligence", badge: "RAG", icon: Bot },
   { id: "3d", label: "3D Exploration", icon: Box },
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "management", label: "Management", icon: ShieldCheck },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "coverage", label: "National Coverage", badge: "ASI", icon: ShieldCheck },
+  { id: "analytics", label: "Heritage Analytics", icon: BarChart3 },
+  { id: "management", label: "Preservation Mgmt", icon: Database },
+  { id: "settings", label: "Platform Settings", icon: Settings },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -45,6 +60,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile,
   onCloseMobile,
 }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   return (
     <>
       {/* Mobile Backdrop */}
@@ -58,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         className={`sidebar ${
           isOpenMobile ? "open" : ""
-        }`}
+        } ${isCollapsed ? "collapsed" : ""}`}
       >
         {/* Brand Header */}
         <div className="sidebar-brand">
@@ -69,24 +86,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <path
-                d="M24 4L28 12H20L24 4Z"
-                fill="url(#goldGrad)"
-              />
-              <path
-                d="M17 12H31L33 18H15L17 12Z"
-                fill="url(#goldGrad)"
-              />
-              <path
-                d="M12 18H36L38 26H10L12 18Z"
-                fill="url(#goldGrad)"
-              />
-              <path
-                d="M8 26H40V40H8V26Z"
-                fill="url(#goldGrad)"
-                opacity="0.95"
-              />
-              {/* Temple Sanctum Door */}
+              <path d="M24 4L28 12H20L24 4Z" fill="url(#goldGrad)" />
+              <path d="M17 12H31L33 18H15L17 12Z" fill="url(#goldGrad)" />
+              <path d="M12 18H36L38 26H10L12 18Z" fill="url(#goldGrad)" />
+              <path d="M8 26H40V40H8V26Z" fill="url(#goldGrad)" opacity="0.95" />
+              {/* Sanctum Door */}
               <path
                 d="M21 40V30C21 28.3431 22.3431 27 24 27C25.6569 27 27 28.3431 27 30V40H21Z"
                 fill="#0a0f18"
@@ -116,10 +120,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </defs>
             </svg>
           </div>
-          <div className="brand-text">
-            <h1 className="brand-title">3D BHARAT</h1>
-            <p className="brand-tagline">Explore • Preserve • Inspire</p>
-          </div>
+
+          {!isCollapsed && (
+            <div className="brand-text">
+              <h1 className="brand-title">3D BHARAT</h1>
+              <p className="brand-tagline">National Heritage Intelligence</p>
+            </div>
+          )}
+
           {isOpenMobile && (
             <button
               className="sidebar-close-btn lg:hidden"
@@ -144,67 +152,98 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   if (isOpenMobile) onCloseMobile();
                 }}
                 className={`nav-item ${isActive ? "active" : ""}`}
+                title={isCollapsed ? item.label : undefined}
               >
                 <span className="nav-icon-wrapper">
                   <Icon className="nav-icon" />
                 </span>
-                <span className="nav-label">{item.label}</span>
+                {!isCollapsed && (
+                  <>
+                    <span className="nav-label">{item.label}</span>
+                    {item.badge && (
+                      <span className="nav-item-badge">{item.badge}</span>
+                    )}
+                  </>
+                )}
                 {isActive && <span className="active-glow-pill" />}
               </button>
             );
           })}
         </nav>
 
-        {/* Sidebar Footer Artwork & Slogan */}
-        <div className="sidebar-footer">
-          <div className="temple-artwork-container">
-            <svg
-              className="temple-carving-svg"
-              viewBox="0 0 200 110"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Temple Shikhara Tiered Silhouette */}
-              <path
-                d="M100 8 L104 22 L112 36 L124 55 L144 80 L165 94 L35 94 L56 80 L76 55 L88 36 L96 22 Z"
-                fill="url(#carvingStone)"
-                opacity="0.85"
-              />
-              {/* Detailed Carving Grooves */}
-              <path
-                d="M100 8 V94 M88 36 H112 M76 55 H124 M56 80 H144"
-                stroke="#D9A441"
-                strokeWidth="0.8"
-                strokeDasharray="2 2"
-                opacity="0.6"
-              />
-              {/* Base plinth */}
-              <rect x="25" y="94" width="150" height="8" rx="2" fill="url(#carvingStone)" />
-              {/* Golden finial */}
-              <circle cx="100" cy="8" r="3" fill="#FFE082" />
-              <defs>
-                <linearGradient id="carvingStone" x1="100" y1="8" x2="100" y2="102" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#3d2c19" />
-                  <stop offset="0.6" stopColor="#22180d" />
-                  <stop offset="1" stopColor="#120c06" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <p className="heritage-quote">
-            “Our Heritage...
-            <br />
-            Our Pride... Our Bharat...”
-          </p>
-          {/* Subtle Tiranga Ribbon */}
-          <div className="tiranga-strip">
-            <span className="tiranga-saffron" />
-            <span className="tiranga-white" />
-            <span className="tiranga-green" />
-          </div>
+        {/* Collapse / Expand Toggle Button for Desktop */}
+        <div className="sidebar-collapse-container hidden lg:flex">
+          <button
+            className="sidebar-toggle-btn"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="w-4 h-4 text-amber-400" />
+            ) : (
+              <>
+                <ChevronLeft className="w-4 h-4 text-gray-400 group-hover:text-amber-400" />
+                <span className="text-xs text-gray-400 group-hover:text-white">Collapse Menu</span>
+              </>
+            )}
+          </button>
         </div>
+
+        {/* Sidebar Footer Artwork & Slogan */}
+        {!isCollapsed && (
+          <div className="sidebar-footer">
+            <div className="temple-artwork-container">
+              <svg
+                className="temple-carving-svg"
+                viewBox="0 0 200 110"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M100 8 L104 22 L112 36 L124 55 L144 80 L165 94 L35 94 L56 80 L76 55 L88 36 L96 22 Z"
+                  fill="url(#carvingStone)"
+                  opacity="0.85"
+                />
+                <path
+                  d="M100 8 V94 M88 36 H112 M76 55 H124 M56 80 H144"
+                  stroke="#D9A441"
+                  strokeWidth="0.8"
+                  strokeDasharray="2 2"
+                  opacity="0.6"
+                />
+                <rect x="25" y="94" width="150" height="8" rx="2" fill="url(#carvingStone)" />
+                <circle cx="100" cy="8" r="3" fill="#FFE082" />
+                <defs>
+                  <linearGradient
+                    id="carvingStone"
+                    x1="100"
+                    y1="8"
+                    x2="100"
+                    y2="102"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop stopColor="#3d2c19" />
+                    <stop offset="0.6" stopColor="#22180d" />
+                    <stop offset="1" stopColor="#120c06" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <p className="heritage-quote">
+              “Our Heritage...
+              <br />
+              Our Pride... Our Bharat...”
+            </p>
+            <div className="tiranga-strip">
+              <span className="tiranga-saffron" />
+              <span className="tiranga-white" />
+              <span className="tiranga-green" />
+            </div>
+          </div>
+        )}
       </aside>
     </>
   );
 };
+
 export default Sidebar;

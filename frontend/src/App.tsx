@@ -20,6 +20,8 @@ import KnowledgeGraphView from "./components/KnowledgeGraphView";
 import AiHeritageAssistant from "./components/AiHeritageAssistant";
 import ThreeDExplorer from "./components/ThreeDExplorer";
 import HeritageAnalytics from "./components/HeritageAnalytics";
+import HeritageExplorerView from "./components/HeritageExplorerView";
+import NationalCoverageView from "./components/NationalCoverageView";
 import HeritageManagement from "./components/HeritageManagement";
 import HeritageSiteDossierModal from "./components/HeritageSiteDossierModal";
 import { AddSiteModal, ReportsModal } from "./components/ManageDataModals";
@@ -201,6 +203,8 @@ export function App() {
         {/* Top Header */}
         <Header
           sites={sites}
+          activeTab={activeTab}
+          totalSites={sites.length}
           onSearchSelect={(site) => {
             handleSelectSite(site);
             handleExploreSite(site);
@@ -290,6 +294,27 @@ export function App() {
                 />
               </section>
             </>
+          )}
+
+          {/* VIEW: HERITAGE EXPLORER (DEDICATED EXPLORER) */}
+          {activeTab === "explorer" && (
+            <div className="expanded-view-container">
+              <HeritageExplorerView
+                sites={sites}
+                onOpenSiteDossier={handleExploreSite}
+                onSelectSiteOnMap={(site) => {
+                  handleSelectSite(site);
+                  setActiveTab("map");
+                }}
+              />
+            </div>
+          )}
+
+          {/* VIEW: NATIONAL DATA COVERAGE (ASI & INGESTION AUDIT) */}
+          {activeTab === "coverage" && (
+            <div className="expanded-view-container">
+              <NationalCoverageView initialTrackerData={trackerData} />
+            </div>
           )}
 
           {/* VIEW: EXPANDED HERITAGE MAP */}
