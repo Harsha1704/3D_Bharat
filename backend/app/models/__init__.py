@@ -11,6 +11,11 @@ from app.models.cultural_graph import (
     CulturalRelationshipType,
     CulturalEvidenceStatus,
 )
+from app.models.ai_document import (
+    AIDocument,
+    AIDocumentChunk,
+    AIChunkEmbedding,
+)
 
 __all__ = [
     "HeritageSite",
@@ -24,4 +29,7 @@ __all__ = [
     "CulturalEntityType",
     "CulturalRelationshipType",
     "CulturalEvidenceStatus",
+    "AIDocument",
+    "AIDocumentChunk",
+    "AIChunkEmbedding",
 ]

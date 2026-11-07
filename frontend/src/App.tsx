@@ -342,7 +342,7 @@ export function App() {
           {activeTab === "assistant" && (
             <div className="expanded-view-container">
               <div className="expanded-view-header">
-                <h2>Heritage Database Assistant</h2>
+                <h2>AI Heritage Intelligence Assistant</h2>
                 <button
                   className="btn-back-dashboard"
                   onClick={() => setActiveTab("dashboard")}
@@ -351,6 +351,7 @@ export function App() {
                 </button>
               </div>
               <AiHeritageAssistant
+                isExpanded={true}
                 selectedSite={selectedSite}
                 allSites={sites}
                 onExploreSite={handleExploreSite}

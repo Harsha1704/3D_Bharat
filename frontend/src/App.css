@@ -2952,3 +2952,321 @@ body, html {
   font-style: italic;
   padding: 8px 0;
 }
+
+/* =========================================================
+   PHASE 9: AI HERITAGE INTELLIGENCE & CITATION SYSTEM
+========================================================= */
+
+.ai-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.ai-status-indicator.status-online {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.ai-status-indicator.status-online .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.ai-status-indicator.status-fallback {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.ai-status-indicator.status-fallback .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+}
+
+.btn-research-mode {
+  display: flex;
+  align-items: center;
+  background: #0f172a;
+  border: 1px solid var(--border-subtle);
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-research-mode:hover {
+  color: #fff;
+  border-color: var(--gold-light);
+}
+
+.btn-research-mode.active {
+  background: rgba(217, 164, 65, 0.2);
+  color: var(--gold-light);
+  border-color: var(--gold-primary);
+  box-shadow: 0 0 8px rgba(217, 164, 65, 0.3);
+}
+
+.assistant-context-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(217, 164, 65, 0.08);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.72rem;
+  color: #e2e8f0;
+}
+
+.context-dossier-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--gold-primary);
+  color: var(--gold-light);
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.context-dossier-btn:hover {
+  background: var(--gold-primary);
+  color: #070b13;
+}
+
+.expanded-assistant {
+  min-height: 720px;
+}
+
+.expanded-assistant .assistant-chat-container {
+  max-height: 520px;
+}
+
+.message-citations-container {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.citations-header {
+  display: flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.citations-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.citation-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-subtle);
+  color: #cbd5e1;
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  max-width: 240px;
+}
+
+.citation-pill:hover {
+  background: rgba(217, 164, 65, 0.15);
+  border-color: var(--gold-light);
+  color: #fff;
+}
+
+.citation-num {
+  font-weight: 700;
+  color: var(--gold-light);
+}
+
+.citation-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-footer-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.62rem;
+  color: #64748b;
+}
+
+.evidence-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.evidence-badge.documented {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.evidence-badge.verified {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.evidence-badge.insufficient_evidence {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.loading-bubble {
+  display: flex;
+  align-items: center;
+  font-style: italic;
+  color: #94a3b8;
+}
+
+/* Citation Modal / Popover */
+.citation-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 12, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.citation-modal-card {
+  background: #0d1527;
+  border: 1px solid var(--gold-primary);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.9);
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  animation: modalScale 0.18s ease-out;
+}
+
+.citation-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.citation-modal-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.citation-close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.citation-close-btn:hover {
+  color: #fff;
+}
+
+.citation-modal-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.citation-meta-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.74rem;
+}
+
+.citation-meta-item .meta-label {
+  color: #94a3b8;
+}
+
+.citation-meta-item .meta-val {
+  color: #fff;
+  font-weight: 600;
+}
+
+.citation-excerpt-box {
+  background: #070c18;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.74rem;
+}
+
+.excerpt-text {
+  color: #cbd5e1;
+  line-height: 1.45;
+  margin: 0;
+  font-style: italic;
+}
+
+.citation-external-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gold-primary);
+  color: #070b13;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: all 0.15s ease;
+  margin-top: 4px;
+}
+
+.citation-external-link:hover {
+  background: var(--gold-light);
+}
+
+.citation-archival-note {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 4px;
+}

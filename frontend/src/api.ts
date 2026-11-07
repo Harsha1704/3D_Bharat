@@ -354,6 +354,71 @@ export interface CulturalGraphProvenanceResponse {
   relationships_provenance: RelationshipProvenanceItem[];
 }
 
+export interface AICitation {
+  citation_id: string;
+  source_id?: number | null;
+  source_title: string;
+  institution?: string | null;
+  source_url?: string | null;
+  publication_date?: string | null;
+  relevant_excerpt: string;
+  associated_site_id?: number | null;
+  associated_site_name?: string | null;
+  associated_graph_entity_id?: number | null;
+  associated_graph_entity_name?: string | null;
+  evidence_classification: string;
+}
+
+export interface AIChatRequest {
+  message: string;
+  conversation_id?: string | null;
+  selected_site_id?: number | null;
+  research_mode?: boolean;
+  retrieval_filters?: Record<string, any> | null;
+}
+
+export interface AIChatResponse {
+  answer: string;
+  citations: AICitation[];
+  retrieved_evidence_summary: string;
+  evidence_status: string;
+  limitations: string[];
+  conversation_id?: string | null;
+  provider_status: Record<string, any>;
+  research_mode: boolean;
+}
+
+export interface AIStatusResponse {
+  service: string;
+  provider: string;
+  model: string;
+  provider_configured: boolean;
+  embedding_service_ready: boolean;
+  embedding_model: string;
+  vector_backend: string;
+  retrieval_service_ready: boolean;
+  knowledge_graph_integrated: boolean;
+  total_indexed_documents: number;
+  total_indexed_chunks: number;
+}
+
+export interface AISearchResult {
+  id: string;
+  title: string;
+  result_type: string;
+  snippet: string;
+  score: number;
+  evidence_classification: string;
+  source_url?: string | null;
+  metadata: Record<string, any>;
+}
+
+export interface AISearchResponse {
+  query: string;
+  total_results: number;
+  results: AISearchResult[];
+}
+
 /* =========================================================
    API REQUEST HELPER
 ========================================================= */
@@ -851,6 +916,32 @@ export async function getCulturalEntityProvenance(
   );
 }
 
+export async function chatWithHeritageAI(
+  request: AIChatRequest,
+  signal?: AbortSignal
+): Promise<AIChatResponse> {
+  return apiRequest<AIChatResponse>("/ai/chat", {
+    method: "POST",
+    body: JSON.stringify(request),
+    signal,
+  });
+}
+
+export async function getAIStatus(
+  signal?: AbortSignal
+): Promise<AIStatusResponse> {
+  return apiRequest<AIStatusResponse>("/ai/status", { signal });
+}
+
+export async function searchHeritageAI(
+  query: string,
+  limit = 10,
+  signal?: AbortSignal
+): Promise<AISearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: limit.toString() });
+  return apiRequest<AISearchResponse>(`/ai/search?${params.toString()}`, { signal });
+}
+
 /* =========================================================
    DEFAULT API OBJECT
 ========================================================= */
@@ -888,6 +979,9 @@ const api = {
   searchCulturalEntities,
   getCulturalGraphStatistics,
   getCulturalEntityProvenance,
+  chatWithHeritageAI,
+  getAIStatus,
+  searchHeritageAI,
 };
 
 export default api;

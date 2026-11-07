@@ -37,6 +37,20 @@ class Settings:
         os.getenv("MAX_3D_FILE_SIZE_BYTES", str(200 * 1024 * 1024))
     )  # 200 MB
 
+    # AI Heritage Intelligence Settings (Provider-independent RAG)
+    AI_PROVIDER: Optional[str] = os.getenv("AI_PROVIDER")  # e.g. "openai", "gemini", "ollama", or None
+    AI_MODEL: str = os.getenv("AI_MODEL", "gpt-4o-mini")
+    AI_API_BASE_URL: Optional[str] = os.getenv("AI_API_BASE_URL")
+    AI_API_KEY: Optional[str] = os.getenv("AI_API_KEY")
+    AI_REQUEST_TIMEOUT_SECONDS: int = int(os.getenv("AI_REQUEST_TIMEOUT", "30"))
+    AI_MAX_OUTPUT_TOKENS: int = int(os.getenv("AI_MAX_OUTPUT_TOKENS", "1000"))
+    AI_MAX_RETRIES: int = int(os.getenv("AI_MAX_RETRIES", "2"))
+    AI_EMBEDDING_MODEL: str = os.getenv("AI_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+    AI_VECTOR_BACKEND: str = os.getenv("AI_VECTOR_BACKEND", "postgres_jsonb")
+    AI_RATE_LIMIT: str = os.getenv("AI_RATE_LIMIT", "60/minute")
+    AI_MAX_RETRIEVAL_RESULTS: int = int(os.getenv("AI_MAX_RETRIEVAL_RESULTS", "10"))
+    AI_RESEARCH_MODE_MAX_RESULTS: int = int(os.getenv("AI_RESEARCH_MODE_MAX_RESULTS", "25"))
+
     # CORS Whitelist Configuration
     # Defaults to development origins if not explicitly set
     _cors_raw: str = os.getenv(
