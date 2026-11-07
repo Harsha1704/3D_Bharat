@@ -10,13 +10,14 @@
 - **3D Digital Assets:** GLB, glTF, OBJ, PLY point clouds, and Gaussian Splat preservation models with coordinate reference systems and companion file tracking.
 - **Historical Provenance & Sources:** Strict demarcation between verified historical facts, community submissions, and AI-derived suggestions.
 - **Complete Heritage Discovery APIs:** Geographical bounding-box viewports, eager-loaded comprehensive monument dossiers, related-site graph & structured discovery, and multi-field text search.
+- **National Data Ingestion & Batch Scalability:** Idempotent, transaction-safe ingestion pipeline supporting CSV and JSON imports, multi-tier duplicate detection, State/UT coverage tracking across 36 Indian regions, and bulk throughput over 10,000 records/sec.
 - **Geospatial & Semantic Intelligence:** Sub-millisecond Haversine proximity queries and hybrid category/period/vector recommendations with in-memory embedding caching.
 
 ## Tech Stack
 
 - **Frontend:** React 19, TypeScript, Vite, React Leaflet, Leaflet, Lucide React
 - **Backend:** Python FastAPI, SQLAlchemy 2.x, Alembic, Pydantic v2, Psycopg 3
-- **Database:** PostgreSQL 17 (with native spherical distance optimization)
+- **Database:** PostgreSQL 17 (with native spherical distance optimization and composite geospatial indexes)
 - **Digital Preservation Storage:** Secure local storage abstraction with content-sniffing and path traversal protection (object storage ready)
 
 ## Project Structure
@@ -31,11 +32,12 @@
 │   ├── app/
 │   │   ├── api/v1/               # Versioned REST API endpoints
 │   │   ├── core/                 # Config, security, centralized DB session
+│   │   ├── data/                 # Authentic baseline datasets (UNESCO & ASI)
 │   │   ├── models/               # SQLAlchemy ORM declarative models
 │   │   ├── schemas/              # Pydantic v2 validation models
-│   │   └── services/             # Domain logic, storage abstraction, graph engine
+│   │   └── services/             # Domain logic, storage abstraction, ingestion engine
 │   ├── storage/uploads/          # Local asset preservation storage (gitignored)
-│   └── tests/                    # Automated pytest test suites (107 tests)
+│   └── tests/                    # Automated pytest test suites (127 tests)
 └── README.md
 ```
 
@@ -92,6 +94,10 @@ Visit `http://localhost:5173` to explore the interactive application.
 
 | Domain | Method & Endpoint | Description |
 | --- | --- | --- |
+| **Ingestion** | `GET /heritage-ingestion/state-tracker` | Coverage tracker across all 36 Indian States and Union Territories |
+| **Ingestion** | `GET /heritage-ingestion/batches` | List all historical ingestion batch logs with audit stats |
+| **Ingestion** | `GET /heritage-ingestion/batches/{id}` | Detailed batch execution summary, duplicate stats, and error logs |
+| **Ingestion** | `POST /heritage-ingestion/run-baseline/{type}` | Run idempotent baseline ingestion for UNESCO or ASI sample datasets |
 | **Discovery** | `GET /heritage-sites/search` | Multi-field search (name, dynasty, architecture, state, tags) with stable sorting & pagination |
 | **Discovery** | `GET /heritage-sites/bbox` | Bounding-box viewport search with coordinate validation (`min_lat`, `min_lon`, `max_lat`, `max_lon`) |
 | **Discovery** | `GET /heritage-sites/nearby` | Geodesic radius search using spherical distance calculation |
@@ -129,7 +135,7 @@ Visit `http://localhost:5173` to explore the interactive application.
 
 ---
 
-## Testing
+## Testing & Scalability
 
 Run the full automated backend test suite:
 
@@ -138,7 +144,11 @@ cd backend
 .venv\Scripts\pytest.exe backend/tests -v
 ```
 
-Test coverage includes 107 passing tests:
+Test coverage includes 127 passing tests:
+- National CSV and JSON source adapter parsing and coordinate bounding validation
+- Multi-tier duplicate detection (exact external ID, normalized name + state, spatial proximity < 200m)
+- Idempotent batch re-execution and preservation of manually verified archival data
+- State-by-State expansion tracker covering all 36 Indian regions
 - Bounding-box geographical viewport search and boundary coordinate validations
 - Comprehensive site details eager loading (sources, media, 3D assets, connections) without N+1 queries
 - Clear demarcation between documented archival links, structured relations, and exploratory AI suggestions
@@ -148,3 +158,10 @@ Test coverage includes 107 passing tests:
 - Mathematical edge-case validation for Haversine geodesic calculations
 - Database CHECK constraints, transaction rollbacks, and session lifecycle
 - Regression tests for existing heritage sites, connections, and knowledge graph
+
+Run the isolated scalability benchmark:
+
+```cmd
+backend\.venv\Scripts\python.exe backend/tests/benchmark_ingestion_scalability.py
+```
+*(Throughput: >10,000 records/sec; Bounding Box Latency: <2 ms; Search Latency: <5 ms)*

@@ -15,11 +15,14 @@ from app.schemas.heritage_3d_asset import Heritage3DAssetResponseWithUrl
 class HeritageSiteBase(BaseModel):
     external_id: str
     name: str
+    alternative_names: Optional[List[str]] = None
     state: str
     district: Optional[str] = None
     city: Optional[str] = None
     category: str
     period: Optional[str] = None
+    dynasty: Optional[str] = None
+    construction_year: Optional[str] = None
     description: str
     significance: Optional[str] = None
     architecture: Optional[str] = None
@@ -41,6 +44,14 @@ class HeritageSiteBase(BaseModel):
     associated_people: Optional[List[str]] = None
     traditions: Optional[List[str]] = None
 
+    verification_status: str = Field(
+        default="OFFICIAL_SOURCE",
+        max_length=50,
+    )
+    batch_id: Optional[str] = Field(default=None, max_length=100)
+    source_reference: Optional[str] = Field(default=None, max_length=255)
+    last_verified_at: Optional[datetime] = None
+
 
 # =========================================================
 # CREATE
@@ -57,11 +68,14 @@ class HeritageSiteCreate(HeritageSiteBase):
 class HeritageSiteUpdate(BaseModel):
     external_id: Optional[str] = None
     name: Optional[str] = None
+    alternative_names: Optional[List[str]] = None
     state: Optional[str] = None
     district: Optional[str] = None
     city: Optional[str] = None
     category: Optional[str] = None
     period: Optional[str] = None
+    dynasty: Optional[str] = None
+    construction_year: Optional[str] = None
     description: Optional[str] = None
     significance: Optional[str] = None
     architecture: Optional[str] = None
@@ -82,6 +96,11 @@ class HeritageSiteUpdate(BaseModel):
     historical_events: Optional[List[str]] = None
     associated_people: Optional[List[str]] = None
     traditions: Optional[List[str]] = None
+
+    verification_status: Optional[str] = None
+    batch_id: Optional[str] = None
+    source_reference: Optional[str] = None
+    last_verified_at: Optional[datetime] = None
 
 
 # =========================================================

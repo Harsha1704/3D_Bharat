@@ -23,6 +23,9 @@ from app.api.v1.heritage_media import (
 from app.api.v1.heritage_3d_assets import (
     router as heritage_3d_assets_router,
 )
+from app.api.v1.heritage_ingestion import (
+    router as heritage_ingestion_router,
+)
 
 logger = logging.getLogger("3d_bharat")
 
@@ -101,6 +104,11 @@ app.include_router(
     prefix="/api/v1",
 )
 
+app.include_router(
+    heritage_ingestion_router,
+    prefix="/api/v1",
+)
+
 
 # =========================================================
 # ROOT
@@ -118,15 +126,24 @@ async def root():
 
 
 # =========================================================
-# HEALTH
+# HEALTH CHECK
 # =========================================================
 
 @app.get("/health")
-async def health():
-    db_healthy = check_database_connection()
+def health_check():
+    is_connected = check_database_connection()
+
+    if not is_connected:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "database": "disconnected",
+            },
+        )
+
     return {
-        "status": "healthy" if db_healthy else "degraded",
+        "status": "healthy",
         "service": "3D BHARAT API",
-        "database": "connected" if db_healthy else "disconnected",
-        "environment": settings.ENVIRONMENT,
+        "database": "connected",
     }
