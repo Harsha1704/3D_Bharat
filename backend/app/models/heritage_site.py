@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from geoalchemy2 import Geography
 from sqlalchemy import DateTime, Float, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
@@ -82,11 +81,8 @@ class HeritageSite(Base):
         nullable=True,
     )
 
-    location: Mapped[object | None] = mapped_column(
-        Geography(
-            geometry_type="POINT",
-            srid=4326,
-        ),
+    location: Mapped[str | None] = mapped_column(
+        Text,
         nullable=True,
     )
 

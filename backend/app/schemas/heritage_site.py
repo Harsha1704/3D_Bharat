@@ -119,7 +119,7 @@ class HeritageSiteSearchResponse(BaseModel):
 
 
 class HeritageSiteRecommendationResponse(HeritageSiteResponse):
-    structured_score: float
-    semantic_score: float
+    structured_score: Optional[float] = None
+    semantic_score: Optional[float] = None
     recommendation_score: float
     recommendation_reasons: List[str]

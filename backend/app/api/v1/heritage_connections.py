@@ -7,9 +7,10 @@ from fastapi import (
     Query,
 )
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.core.database import get_db
 
 from app.schemas.heritage_connection import (
     HeritageConnectionCreate,
@@ -32,17 +33,6 @@ router = APIRouter(
 )
 
 
-# =========================================================
-# DATABASE DEPENDENCY
-# =========================================================
-
-def get_db():
-    db = SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 # =========================================================
@@ -75,6 +65,13 @@ def create_connection(
         raise HTTPException(
             status_code=400,
             detail=str(exc),
+        )
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="A connection between these sites with this relationship type already exists.",
         )
 
     if connection is None:

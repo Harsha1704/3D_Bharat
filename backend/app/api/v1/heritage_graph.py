@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.core.database import get_db
 
 from app.schemas.heritage_connection import (
     HeritageConnectionResponse,
@@ -28,17 +28,6 @@ router = APIRouter(
 )
 
 
-# =========================================================
-# DATABASE DEPENDENCY
-# =========================================================
-
-def get_db():
-    db = SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 # =========================================================

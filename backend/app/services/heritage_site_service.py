@@ -26,12 +26,9 @@ def create_heritage_site(
     latitude = data.get("latitude")
     longitude = data.get("longitude")
 
-    # Create PostGIS POINT(longitude latitude)
+    # Create POINT(longitude latitude)
     if latitude is not None and longitude is not None:
-        data["location"] = WKTElement(
-            f"POINT({longitude} {latitude})",
-            srid=4326,
-        )
+        data["location"] = f"POINT({longitude} {latitude})"
 
     site = HeritageSite(**data)
 
@@ -351,10 +348,7 @@ def update_heritage_site(
         latitude is not None
         and longitude is not None
     ):
-        site.location = WKTElement(
-            f"POINT({longitude} {latitude})",
-            srid=4326,
-        )
+        site.location = f"POINT({longitude} {latitude})"
 
     db.commit()
     db.refresh(site)
@@ -396,36 +390,29 @@ def get_nearby_heritage_sites(
     radius_km: float = 10,
 ):
 
-    radius_m = radius_km * 1000
+    lat_r = func.radians(latitude)
+    lon_r = func.radians(longitude)
+    site_lat_r = func.radians(HeritageSite.latitude)
+    site_lon_r = func.radians(HeritageSite.longitude)
 
-    # POINT(longitude latitude)
-    search_point = WKTElement(
-        f"POINT({longitude} {latitude})",
-        srid=4326,
+    cos_angle = (
+        func.sin(lat_r) * func.sin(site_lat_r)
+        + func.cos(lat_r) * func.cos(site_lat_r) * func.cos(site_lon_r - lon_r)
     )
-
-    # Distance in meters
-    distance_m = func.ST_Distance(
-        HeritageSite.location,
-        search_point,
-    )
+    clamped_cos = func.least(1.0, func.greatest(-1.0, cos_angle))
+    distance_km = 6371.0 * func.acos(clamped_cos)
 
     stmt = (
         select(
             HeritageSite,
-            (
-                distance_m / 1000.0
-            ).label("distance_km"),
+            distance_km.label("distance_km"),
         )
         .where(
-            HeritageSite.location.is_not(None),
-            func.ST_DWithin(
-                HeritageSite.location,
-                search_point,
-                radius_m,
-            ),
+            HeritageSite.latitude.is_not(None),
+            HeritageSite.longitude.is_not(None),
+            distance_km <= radius_km,
         )
-        .order_by(distance_m)
+        .order_by(distance_km)
     )
 
     results = db.execute(

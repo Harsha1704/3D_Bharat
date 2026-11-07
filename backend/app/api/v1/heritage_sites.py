@@ -7,9 +7,10 @@ from fastapi import (
     Query,
 )
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.core.database import get_db
 
 from app.schemas.heritage_site import (
     HeritageSiteCreate,
@@ -39,19 +40,6 @@ router = APIRouter(
 
 
 # =========================================================
-# DATABASE
-# =========================================================
-
-def get_db():
-    db = SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# =========================================================
 # CREATE
 # POST /api/v1/heritage-sites
 # =========================================================
@@ -65,10 +53,17 @@ def create_site(
     site_data: HeritageSiteCreate,
     db: Session = Depends(get_db),
 ):
-    return create_heritage_site(
-        db,
-        site_data,
-    )
+    try:
+        return create_heritage_site(
+            db,
+            site_data,
+        )
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Heritage site with external_id '{site_data.external_id}' already exists.",
+        )
 
 
 # =========================================================
@@ -292,6 +287,8 @@ def heritage_recommendations(
                 "traditions": site.traditions,
                 "created_at": site.created_at,
                 "updated_at": site.updated_at,
+                "structured_score": item.get("structured_score", 0.0),
+                "semantic_score": item.get("semantic_score", 0.0),
                 "recommendation_score": item[
                     "recommendation_score"
                 ],
