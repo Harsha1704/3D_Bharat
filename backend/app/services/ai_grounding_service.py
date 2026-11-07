@@ -25,6 +25,13 @@ ADVERSARIAL_PATTERNS = [
     r"(?i)grant\s+(admin|write)\s+access",
     r"(?i)drop\s+table",
     r"(?i)delete\s+from\s+heritage_",
+    # Multilingual & Romanized Hindi injection patterns
+    r"(?i)purane\s+(saare\s+)?nirdesh\s+(bhool|bhula)",
+    r"(?i)system\s+prompt\s+(dikhao|batao|reveal)",
+    r"(?i)pichhle\s+nirdesh\s+bhool",
+    # Fake system markers and delimiters
+    r"(?i)<\s*system\s*>",
+    r"(?i)\[\s*SYSTEM\s*:",
 ]
 
 COMMON_STOPWORDS = {

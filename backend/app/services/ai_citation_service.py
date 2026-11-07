@@ -13,10 +13,11 @@ KNOWN_DYNASTIES = [
 ]
 
 KNOWN_MONUMENTS = [
-    "Konark", "Brihadisvara", "Hampi", "Ajanta", "Ellora", "Khajuraho",
+    "Konark", "Brihadisvara", "Hampi", "Ajanta", "Ellora", "Kailasa", "Khajuraho",
     "Sanchi", "Meenakshi", "Taj Mahal", "Golconda", "Rani-ki-Vav", "Pattadakal",
     "Mahabodhi", "Nalanda", "Ramappa", "Dholavira", "Chittorgarh", "Kumbhalgarh",
-    "Martand", "Bekal", "Daulatabad", "Adalaj"
+    "Martand", "Bekal", "Daulatabad", "Adalaj", "Vijayanagara", "Modhera",
+    "Fatehpur Sikri", "Red Fort", "Qutb Minar", "Elephanta", "Mahabalipuram"
 ]
 
 
@@ -127,7 +128,10 @@ def evaluate_claim_against_passage(claim_sentence: str, evidence_snippet: str) -
         if w.lower() not in {
             "this", "that", "these", "those", "from", "with", "have", "were", "been",
             "also", "their", "into", "over", "what", "which", "where", "when", "does",
-            "about", "under", "after", "before", "between", "according", "records"
+            "about", "under", "after", "before", "between", "according", "records",
+            "features", "feature", "constructed", "built", "commissioned", "consecrated",
+            "established", "dedicated", "memorial", "preserves", "crowned", "rises",
+            "single", "monument", "temple", "temples", "complex"
         }
     }
 
@@ -142,6 +146,8 @@ def evaluate_claim_against_passage(claim_sentence: str, evidence_snippet: str) -
 
     overlap = sum(1 for token in claim_tokens if token in evidence_lower)
     overlap_ratio = overlap / len(claim_tokens)
+    missing_tokens = [t for t in claim_tokens if t not in evidence_lower]
+    missing_ratio = len(missing_tokens) / len(claim_tokens)
 
     # Require at least 2 distinct substantive tokens or >= 25% overlap
     if overlap < 2 and overlap_ratio < 0.25:
@@ -151,6 +157,16 @@ def evaluate_claim_against_passage(claim_sentence: str, evidence_snippet: str) -
             is_supported=False,
             status="UNSUPPORTED",
             reason=f"Insufficient entity overlap ({overlap}/{len(claim_tokens)} tokens supported).",
+        )
+
+    # Detect claims with substantial uncorroborated assertions (>= 50% tokens missing)
+    if len(claim_tokens) >= 4 and missing_ratio >= 0.50:
+        return ClaimEvaluation(
+            claim_sentence=claim_sentence,
+            citation_tag="",
+            is_supported=False,
+            status="PARTIALLY_UNSUPPORTED",
+            reason=f"Claim contains uncorroborated assertions ({len(missing_tokens)}/{len(claim_tokens)} tokens missing: {', '.join(missing_tokens[:3])}).",
         )
 
     return ClaimEvaluation(

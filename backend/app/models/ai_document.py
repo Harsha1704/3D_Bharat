@@ -83,6 +83,47 @@ class AIDocument(Base):
         nullable=False,
     )
 
+    source_identifier: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    rights_status: Mapped[str] = mapped_column(
+        String(50),
+        default="RIGHTS_REVIEW_REQUIRED",
+        nullable=False,
+        index=True,
+    )
+
+    rights_evidence_url: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    rights_notes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    content_origin: Mapped[str] = mapped_column(
+        String(50),
+        default="CURATED_SUMMARY",
+        nullable=False,
+        index=True,
+    )
+
+    verification_status: Mapped[str] = mapped_column(
+        String(50),
+        default="UNVERIFIED",
+        nullable=False,
+        index=True,
+    )
+
+    verified_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     total_chunks: Mapped[int] = mapped_column(
         Integer,
         default=0,
