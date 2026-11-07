@@ -26,6 +26,9 @@ from app.api.v1.heritage_3d_assets import (
 from app.api.v1.heritage_ingestion import (
     router as heritage_ingestion_router,
 )
+from app.api.v1.knowledge_graph import (
+    router as knowledge_graph_router,
+)
 
 logger = logging.getLogger("3d_bharat")
 
@@ -106,6 +109,11 @@ app.include_router(
 
 app.include_router(
     heritage_ingestion_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    knowledge_graph_router,
     prefix="/api/v1",
 )
 

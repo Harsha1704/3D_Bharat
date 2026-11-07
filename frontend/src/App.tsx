@@ -253,6 +253,7 @@ export function App() {
                   connections={connections}
                   onSelectConnectedSite={handleSelectSite}
                   onViewFullGraph={() => setActiveTab("graph")}
+                  onOpenSiteDossier={handleExploreSite}
                 />
 
                 {/* Column 3: AI Heritage Assistant (Database-Backed) */}
@@ -326,11 +327,13 @@ export function App() {
                 </button>
               </div>
               <KnowledgeGraphView
+                isExpanded={true}
                 selectedSite={selectedSite}
                 allSites={sites}
                 connections={connections}
                 onSelectConnectedSite={handleSelectSite}
                 onViewFullGraph={() => {}}
+                onOpenSiteDossier={handleExploreSite}
               />
             </div>
           )}

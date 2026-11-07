@@ -275,6 +275,85 @@ export interface HeritageGraphResponse {
   edges: GraphEdge[];
 }
 
+export interface CulturalGraphEntity {
+  id: number;
+  entity_type: string;
+  canonical_name: string;
+  slug?: string | null;
+  heritage_site_id?: number | null;
+  alternative_names?: string[] | null;
+  description?: string | null;
+  geographical_context?: string | null;
+  period?: string | null;
+  metadata_json?: Record<string, any> | null;
+  verification_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CulturalGraphRelationship {
+  id: number;
+  source_entity_id: number;
+  target_entity_id: number;
+  relationship_type: string;
+  description?: string | null;
+  directionality: string;
+  evidence_status: string;
+  confidence_score?: number | null;
+  primary_source_id?: number | null;
+  source_citation?: string | null;
+  historical_period?: string | null;
+  legacy_connection_id?: number | null;
+  metadata_json?: Record<string, any> | null;
+  source_entity_name?: string | null;
+  target_entity_name?: string | null;
+  source_entity_type?: string | null;
+  target_entity_type?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CulturalGraphExploreResponse {
+  center_entity_id: number;
+  center_entity: CulturalGraphEntity;
+  depth: number;
+  total_nodes: number;
+  total_edges: number;
+  nodes: CulturalGraphEntity[];
+  edges: CulturalGraphRelationship[];
+}
+
+export interface CulturalGraphStatistics {
+  total_entities: number;
+  total_relationships: number;
+  entities_by_type: Record<string, number>;
+  relationships_by_type: Record<string, number>;
+  relationships_by_evidence: Record<string, number>;
+}
+
+export interface RelationshipProvenanceItem {
+  relationship_id: number;
+  relationship_type: string;
+  connected_entity_id: number;
+  connected_entity_name: string;
+  connected_entity_type: string;
+  evidence_status: string;
+  confidence_score?: number | null;
+  primary_source_id?: number | null;
+  source_title?: string | null;
+  source_citation?: string | null;
+  source_url?: string | null;
+}
+
+export interface CulturalGraphProvenanceResponse {
+  entity_id: number;
+  entity_name: string;
+  entity_type: string;
+  verification_status: string;
+  heritage_site_id?: number | null;
+  relationships_provenance: RelationshipProvenanceItem[];
+}
+
 /* =========================================================
    API REQUEST HELPER
 ========================================================= */
@@ -662,6 +741,116 @@ export async function runBaselineIngestion(
   );
 }
 
+export async function getCulturalEntities(
+  params?: {
+    entity_type?: string;
+    verification_status?: string;
+    search?: string;
+    skip?: number;
+    limit?: number;
+  },
+  signal?: AbortSignal
+): Promise<CulturalGraphEntity[]> {
+  const query = new URLSearchParams();
+  if (params?.entity_type) query.set("entity_type", params.entity_type);
+  if (params?.verification_status) query.set("verification_status", params.verification_status);
+  if (params?.search) query.set("search", params.search);
+  if (params?.skip !== undefined) query.set("skip", params.skip.toString());
+  if (params?.limit !== undefined) query.set("limit", params.limit.toString());
+
+  const qs = query.toString();
+  return apiRequest<CulturalGraphEntity[]>(
+    `/knowledge-graph/entities${qs ? `?${qs}` : ""}`,
+    { signal }
+  );
+}
+
+export async function getCulturalEntity(
+  entityId: number,
+  signal?: AbortSignal
+): Promise<CulturalGraphEntity> {
+  return apiRequest<CulturalGraphEntity>(`/knowledge-graph/entities/${entityId}`, { signal });
+}
+
+export async function getCulturalEntityRelationships(
+  entityId: number,
+  params?: {
+    relationship_type?: string;
+    evidence_status?: string;
+  },
+  signal?: AbortSignal
+): Promise<CulturalGraphRelationship[]> {
+  const query = new URLSearchParams();
+  if (params?.relationship_type) query.set("relationship_type", params.relationship_type);
+  if (params?.evidence_status) query.set("evidence_status", params.evidence_status);
+
+  const qs = query.toString();
+  return apiRequest<CulturalGraphRelationship[]>(
+    `/knowledge-graph/entities/${entityId}/relationships${qs ? `?${qs}` : ""}`,
+    { signal }
+  );
+}
+
+export async function exploreCulturalGraph(
+  entityId: number,
+  params?: {
+    depth?: number;
+    entity_types?: string[];
+    relationship_types?: string[];
+    evidence_status?: string;
+    limit?: number;
+  },
+  signal?: AbortSignal
+): Promise<CulturalGraphExploreResponse> {
+  const query = new URLSearchParams();
+  if (params?.depth !== undefined) query.set("depth", params.depth.toString());
+  if (params?.limit !== undefined) query.set("limit", params.limit.toString());
+  if (params?.evidence_status) query.set("evidence_status", params.evidence_status);
+  if (params?.entity_types) {
+    params.entity_types.forEach((t) => query.append("entity_types", t));
+  }
+  if (params?.relationship_types) {
+    params.relationship_types.forEach((r) => query.append("relationship_types", r));
+  }
+
+  const qs = query.toString();
+  return apiRequest<CulturalGraphExploreResponse>(
+    `/knowledge-graph/explore/${entityId}${qs ? `?${qs}` : ""}`,
+    { signal }
+  );
+}
+
+export async function searchCulturalEntities(
+  q: string,
+  entityType?: string,
+  limit = 20,
+  signal?: AbortSignal
+): Promise<CulturalGraphEntity[]> {
+  const query = new URLSearchParams({ q, limit: limit.toString() });
+  if (entityType) query.set("entity_type", entityType);
+
+  return apiRequest<CulturalGraphEntity[]>(
+    `/knowledge-graph/search?${query.toString()}`,
+    { signal }
+  );
+}
+
+export async function getCulturalGraphStatistics(
+  signal?: AbortSignal
+): Promise<CulturalGraphStatistics> {
+  return apiRequest<CulturalGraphStatistics>("/knowledge-graph/statistics", { signal });
+}
+
+export async function getCulturalEntityProvenance(
+  entityId: number,
+  signal?: AbortSignal
+): Promise<CulturalGraphProvenanceResponse> {
+  return apiRequest<CulturalGraphProvenanceResponse>(
+    `/knowledge-graph/entities/${entityId}/provenance`,
+    { signal }
+  );
+}
+
 /* =========================================================
    DEFAULT API OBJECT
 ========================================================= */
@@ -692,6 +881,13 @@ const api = {
   getStateTracker,
   getImportBatches,
   runBaselineIngestion,
+  getCulturalEntities,
+  getCulturalEntity,
+  getCulturalEntityRelationships,
+  exploreCulturalGraph,
+  searchCulturalEntities,
+  getCulturalGraphStatistics,
+  getCulturalEntityProvenance,
 };
 
 export default api;
