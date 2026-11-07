@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import verify_write_access
 from app.schemas.heritage_3d_asset import (
     Heritage3DAssetCreate,
     Heritage3DAssetUpdate,
@@ -24,6 +25,8 @@ from app.services.heritage_3d_service import (
     list_heritage_3d_assets_by_site,
     update_heritage_3d_asset,
     delete_heritage_3d_asset,
+    add_companion_file_to_asset,
+    verify_3d_asset_companions,
 )
 from app.services.storage_service import storage_service
 
@@ -34,6 +37,7 @@ router = APIRouter(tags=["Heritage 3D Assets & Digital Reconstruction"])
     "/heritage-sites/{site_id}/3d-assets",
     response_model=Heritage3DAssetResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_write_access)],
 )
 def create_3d_asset_metadata(
     site_id: int,
@@ -59,6 +63,7 @@ def create_3d_asset_metadata(
     "/heritage-sites/{site_id}/3d-assets/upload",
     response_model=Heritage3DAssetResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_write_access)],
 )
 def upload_3d_asset_file(
     site_id: int,
@@ -117,6 +122,55 @@ def upload_3d_asset_file(
         if "does not exist" in msg:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+
+
+@router.post(
+    "/heritage-3d-assets/{asset_id}/companions",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_write_access)],
+)
+def upload_companion_file(
+    asset_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Upload and attach a companion material (.mtl), texture image, or binary buffer
+    strictly inside the 3D asset's isolated folder.
+    """
+    try:
+        result = add_companion_file_to_asset(
+            db=db,
+            asset_id=asset_id,
+            companion_filename=file.filename or "companion_file",
+            stream=file.file,
+        )
+        return {
+            "message": "Companion file attached successfully.",
+            "asset_id": asset_id,
+            **result,
+        }
+    except ValueError as exc:
+        msg = str(exc)
+        if "does not exist" in msg:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
+
+
+@router.get(
+    "/heritage-3d-assets/{asset_id}/verify",
+)
+def verify_asset_companion_integrity(
+    asset_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Inspect model definitions and verify whether referenced companion files exist on disk.
+    """
+    try:
+        return verify_3d_asset_companions(db=db, asset_id=asset_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.get(
@@ -191,6 +245,7 @@ def download_3d_asset_file(
 @router.patch(
     "/heritage-3d-assets/{asset_id}",
     response_model=Heritage3DAssetResponse,
+    dependencies=[Depends(verify_write_access)],
 )
 def update_3d_asset_by_id(
     asset_id: int,
@@ -212,15 +267,22 @@ def update_3d_asset_by_id(
 @router.delete(
     "/heritage-3d-assets/{asset_id}",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(verify_write_access)],
 )
 def delete_3d_asset_by_id(
     asset_id: int,
     db: Session = Depends(get_db),
 ):
-    deleted = delete_heritage_3d_asset(db, asset_id)
-    if not deleted:
+    try:
+        deleted = delete_heritage_3d_asset(db, asset_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Heritage 3D asset not found.",
+            )
+        return {"message": "Heritage 3D asset deleted successfully."}
+    except RuntimeError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Heritage 3D asset not found.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
         )
-    return {"message": "Heritage 3D asset deleted successfully."}

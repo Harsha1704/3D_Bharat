@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import verify_write_access
 from app.schemas.heritage_source import (
     HeritageSourceCreate,
     HeritageSourceUpdate,
@@ -23,6 +24,7 @@ router = APIRouter(tags=["Heritage Sources & Provenance"])
     "/heritage-sites/{site_id}/sources",
     response_model=HeritageSourceResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_write_access)],
 )
 def create_source_for_site(
     site_id: int,
@@ -75,6 +77,7 @@ def get_source_by_id(
 @router.patch(
     "/heritage-sources/{source_id}",
     response_model=HeritageSourceResponse,
+    dependencies=[Depends(verify_write_access)],
 )
 def update_source_by_id(
     source_id: int,
@@ -93,6 +96,7 @@ def update_source_by_id(
 @router.delete(
     "/heritage-sources/{source_id}",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(verify_write_access)],
 )
 def delete_source_by_id(
     source_id: int,

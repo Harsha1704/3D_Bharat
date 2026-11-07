@@ -73,7 +73,7 @@ def test_storage_unsupported_media_extension_rejected(temp_storage):
 def test_storage_magic_byte_mismatch_rejected(temp_storage):
     """Reject file with mismatched magic bytes (e.g. text content renamed as .png)."""
     fake_png = io.BytesIO(b"%PDF-1.4 header in png extension")
-    with pytest.raises(ValueError, match="File header signature does not match"):
+    with pytest.raises(ValueError, match="missing PNG magic header"):
         temp_storage.save_file_stream(
             stream=fake_png,
             original_filename="fake_image.png",

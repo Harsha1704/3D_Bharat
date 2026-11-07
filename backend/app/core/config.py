@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from dotenv import load_dotenv
 
 # Base backend directory
@@ -21,6 +21,9 @@ class Settings:
 
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+
+    # Security & Access Control
+    PRESERVATION_WRITE_API_KEY: Optional[str] = os.getenv("PRESERVATION_WRITE_API_KEY")
 
     # Storage Abstraction Settings
     STORAGE_LOCAL_ROOT: Path = Path(

@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import verify_write_access
 from app.schemas.heritage_media import (
     HeritageMediaCreate,
     HeritageMediaUpdate,
@@ -34,6 +35,7 @@ router = APIRouter(tags=["Heritage Media & Preservation"])
     "/heritage-sites/{site_id}/media",
     response_model=HeritageMediaResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_write_access)],
 )
 def create_media_metadata(
     site_id: int,
@@ -59,6 +61,7 @@ def create_media_metadata(
     "/heritage-sites/{site_id}/media/upload",
     response_model=HeritageMediaResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_write_access)],
 )
 def upload_media_file(
     site_id: int,
@@ -87,7 +90,6 @@ def upload_media_file(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
-    # Infer or use provided content_type
     content_type = file.content_type or "application/octet-stream"
 
     media_create = HeritageMediaCreate(
@@ -189,6 +191,7 @@ def download_media_file(
 @router.patch(
     "/heritage-media/{media_id}",
     response_model=HeritageMediaResponse,
+    dependencies=[Depends(verify_write_access)],
 )
 def update_media_by_id(
     media_id: int,
@@ -210,15 +213,22 @@ def update_media_by_id(
 @router.delete(
     "/heritage-media/{media_id}",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(verify_write_access)],
 )
 def delete_media_by_id(
     media_id: int,
     db: Session = Depends(get_db),
 ):
-    deleted = delete_heritage_media(db, media_id)
-    if not deleted:
+    try:
+        deleted = delete_heritage_media(db, media_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Heritage media asset not found.",
+            )
+        return {"message": "Heritage media deleted successfully."}
+    except RuntimeError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Heritage media asset not found.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
         )
-    return {"message": "Heritage media deleted successfully."}

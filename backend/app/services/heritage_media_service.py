@@ -112,5 +112,9 @@ def delete_heritage_media(
     db.commit()
 
     # Clean up physical file after successful DB deletion
-    storage_service.delete_file(storage_key)
+    try:
+        storage_service.delete_file(storage_key)
+    except Exception as exc:
+        raise RuntimeError(f"Database record deleted, but physical file cleanup failed: {exc}")
+
     return True

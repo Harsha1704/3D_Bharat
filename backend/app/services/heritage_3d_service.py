@@ -1,4 +1,5 @@
-from typing import List, Optional
+import re
+from typing import BinaryIO, Dict, List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,10 +14,6 @@ def create_heritage_3d_asset(
     db: Session,
     asset_data: Heritage3DAssetCreate,
 ) -> Heritage3DAsset:
-    """
-    Creates 3D asset metadata for an existing heritage site.
-    Validates site existence and optional source existence.
-    """
     site = db.execute(
         select(HeritageSite).where(HeritageSite.id == asset_data.heritage_site_id)
     ).scalar_one_or_none()
@@ -30,7 +27,6 @@ def create_heritage_3d_asset(
         if source is None:
             raise ValueError(f"Heritage source with id {asset_data.source_id} does not exist.")
 
-    # Check for duplicate storage_key
     existing_key = db.execute(
         select(Heritage3DAsset).where(Heritage3DAsset.storage_key == asset_data.storage_key)
     ).scalar_one_or_none()
@@ -96,26 +92,134 @@ def update_heritage_3d_asset(
     return asset
 
 
+def add_companion_file_to_asset(
+    db: Session,
+    asset_id: int,
+    companion_filename: str,
+    stream: BinaryIO,
+) -> Dict[str, str]:
+    """
+    Saves a companion file strictly inside the 3D asset's isolated folder
+    and records it in the asset's companion_files list in the database.
+    """
+    asset = get_heritage_3d_asset(db, asset_id)
+    if asset is None:
+        raise ValueError(f"Heritage 3D asset with id {asset_id} does not exist.")
+
+    rel_key, sanitized, size, checksum = storage_service.save_companion_file(
+        parent_storage_key=asset.storage_key,
+        companion_filename=companion_filename,
+        stream=stream,
+    )
+
+    current_companions = list(asset.companion_files or [])
+    if sanitized not in current_companions:
+        current_companions.append(sanitized)
+        asset.companion_files = current_companions
+        db.commit()
+        db.refresh(asset)
+
+    return {
+        "storage_key": rel_key,
+        "companion_filename": sanitized,
+        "size_bytes": str(size),
+        "checksum_sha256": checksum,
+    }
+
+
+def verify_3d_asset_companions(
+    db: Session,
+    asset_id: int,
+) -> Dict[str, object]:
+    """
+    Inspects model file and checks whether referenced companion files
+    (e.g. mtllib in OBJ) exist on disk. Reports any missing companion files.
+    """
+    asset = get_heritage_3d_asset(db, asset_id)
+    if asset is None:
+        raise ValueError(f"Heritage 3D asset with id {asset_id} does not exist.")
+
+    abs_path = storage_service.get_absolute_path(asset.storage_key)
+    if not abs_path.exists():
+        return {
+            "status": "PRIMARY_FILE_MISSING",
+            "model_format": asset.asset_format,
+            "referenced_companions": [],
+            "found_companions": [],
+            "missing_companions": [],
+        }
+
+    referenced = []
+    # If OBJ, parse mtllib statements
+    if asset.asset_format.upper() == "OBJ" or abs_path.suffix.lower() == ".obj":
+        try:
+            with open(abs_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    match = re.match(r"^\s*mtllib\s+(.+)$", line)
+                    if match:
+                        ref_file = match.group(1).strip()
+                        # Sanitize reference to prevent directory traversal
+                        ref_file = storage_service.sanitize_filename(ref_file)
+                        referenced.append(ref_file)
+        except Exception:
+            pass
+
+    # Check companion folder
+    companions_dir = abs_path.parent / "companions"
+    found = []
+    missing = []
+
+    for ref in referenced:
+        target = companions_dir / ref
+        if target.exists():
+            found.append(ref)
+        else:
+            missing.append(ref)
+
+    # Also check registered companion_files list from DB
+    registered = list(asset.companion_files or [])
+    for reg in registered:
+        target = companions_dir / reg
+        if target.exists():
+            if reg not in found:
+                found.append(reg)
+        else:
+            if reg not in missing:
+                missing.append(reg)
+
+    status = "COMPLETE" if not missing else "INCOMPLETE"
+    return {
+        "status": status,
+        "model_format": asset.asset_format,
+        "registered_companions": registered,
+        "referenced_companions": referenced,
+        "found_companions": found,
+        "missing_companions": missing,
+    }
+
+
 def delete_heritage_3d_asset(
     db: Session,
     asset_id: int,
 ) -> bool:
     """
-    Deletes 3D asset record from database and cleans up primary file and companion files.
+    Deletes 3D asset record from database, then cleans up storage files.
+    If storage cleanup fails, logs error and raises RuntimeError.
     """
     asset = get_heritage_3d_asset(db, asset_id)
     if asset is None:
         return False
 
     storage_key = asset.storage_key
-    companion_keys = asset.companion_files or []
 
+    # DB transaction first
     db.delete(asset)
     db.commit()
 
-    # Clean up physical files
-    storage_service.delete_file(storage_key)
-    for c_key in companion_keys:
-        storage_service.delete_file(c_key)
+    # Physical cleanup after successful DB commit
+    try:
+        storage_service.delete_file(storage_key)
+    except Exception as exc:
+        raise RuntimeError(f"Database record deleted, but physical file cleanup failed: {exc}")
 
     return True
