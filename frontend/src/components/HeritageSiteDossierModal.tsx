@@ -329,14 +329,18 @@ export const HeritageSiteDossierModal: React.FC<
                               Launch 3D Viewer
                             </a>
                           </div>
-                          {ast.file_url && (
+                          {ast.file_url && ast.redistribution_allowed ? (
                             <a
-                              href={ast.file_url}
-                              className="asset-download-btn"
+                              href={`${ast.file_url}?download=true`}
+                              className="asset-download-btn mt-2 block text-center"
                               download
                             >
                               Download 3D Asset
                             </a>
+                          ) : (
+                            <span className="text-[10px] text-amber-300/80 block mt-2 text-center">
+                              Direct download restricted • In-browser visual inspection only
+                            </span>
                           )}
                         </div>
                       ))}

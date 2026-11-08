@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Box,
+  ShieldAlert,
   ShieldCheck,
   CheckCircle2,
   Copy,
@@ -13,6 +14,8 @@ import {
   Lock,
   Cpu,
   Compass,
+  AlertCircle,
+  Eye,
 } from "lucide-react";
 import {
   getPilot3DAsset,
@@ -70,8 +73,7 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
 
         // Fallback to Pilot Monument if no site-specific asset
         if (!targetAsset) {
-          // Check if initialAssets has pilot
-          const pilotInInitial = initialAssets.find((a) => a.is_pilot);
+          const pilotInInitial = initialAssets.find((a) => a.is_pilot && a.visibility_status === "PUBLIC");
           if (pilotInInitial) {
             targetAsset = pilotInInitial;
           } else {
@@ -106,7 +108,9 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
 
   const handleCopyChecksum = () => {
     if (!asset?.checksum_sha256) return;
-    navigator.clipboard.writeText(asset.checksum_sha256);
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(asset.checksum_sha256).catch(() => {});
+    }
     setCopiedHash(true);
     setTimeout(() => setCopiedHash(false), 2000);
   };
@@ -129,10 +133,14 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
         return "bg-blue-500/20 text-blue-300 border-blue-500/40";
       case "HISTORICAL_RECONSTRUCTION":
         return "bg-amber-500/20 text-amber-300 border-amber-500/40";
+      case "ARCHITECTURAL_VISUALIZATION":
+        return "bg-amber-500/20 text-amber-300 border-amber-500/40";
       default:
         return "bg-purple-500/20 text-purple-300 border-purple-500/40";
     }
   };
+
+  const isRightsReview = asset?.rights_status === "RIGHTS_REVIEW_REQUIRED";
 
   if (loading) {
     return (
@@ -210,8 +218,16 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
             )}`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>{(asset.asset_origin || "HISTORICAL_RECONSTRUCTION").replace(/_/g, " ")}</span>
+            <span>{(asset.asset_origin || "ARCHITECTURAL_VISUALIZATION").replace(/_/g, " ")}</span>
           </div>
+
+          {/* Rights Status Pill */}
+          {isRightsReview && (
+            <div className="px-2.5 py-1 text-[11px] font-medium rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300 flex items-center gap-1">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>RIGHTS REVIEW PENDING</span>
+            </div>
+          )}
 
           {/* Ask AI shortcut */}
           <button
@@ -296,11 +312,13 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
                     Authenticity & Genesis Classification
                   </span>
                   <div className="text-sm font-semibold text-amber-200">
-                    {(asset.asset_origin || "HISTORICAL_RECONSTRUCTION").replace(/_/g, " ")}
+                    {(asset.asset_origin || "ARCHITECTURAL_VISUALIZATION").replace(/_/g, " ")}
                   </div>
-                  <p className="text-[11px] text-slate-300 mt-1.5">
-                    Model reconstructed according to canonical Kalinga Shilpa Shastra proportions,
-                    archaeological site surveys, and ASI preservation elevations.
+                  <p className="text-[11px] text-slate-300 mt-1.5 leading-normal">
+                    This model is a <strong>programmatically generated procedural 3D architectural visualization</strong> synthesized
+                    by the 3D BHARAT geometry engine. It mathematically reconstructs the core Kalinga architectural forms
+                    (stepped pidha tiers, cosmic chariot wheels, crowning amalaka and kalasha) for educational and visual study.
+                    It is not an archaeological laser scan or photogrammetry capture.
                   </p>
                 </div>
 
@@ -333,38 +351,47 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
                   </div>
                 </div>
 
-                {/* Rights and Licensing */}
+                {/* Rights and Licensing Notice */}
                 <div className="bg-[#0f1b3b] p-3.5 rounded-lg border border-slate-800 space-y-2.5">
                   <span className="text-[10px] uppercase font-semibold text-slate-400 block">
                     Licensing & Usage Permissions
                   </span>
                   <div className="flex items-center justify-between py-1 border-b border-slate-800">
                     <span className="text-slate-400">License Standard:</span>
-                    <span className="font-semibold text-white">{asset.licence_name || "CC-BY-4.0"}</span>
+                    <span className="font-semibold text-amber-300">{asset.licence_name || "RIGHTS_REVIEW_PENDING"}</span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-slate-800">
                     <span className="text-slate-400">Rights Status:</span>
                     <span className="font-semibold text-amber-300">
-                      {(asset.rights_status || "CREATIVE_COMMONS").replace(/_/g, " ")}
+                      {(asset.rights_status || "RIGHTS_REVIEW_REQUIRED").replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-1 border-b border-slate-800">
+                    <span className="text-slate-400">In-Browser Display:</span>
+                    <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <Eye className="w-3 h-3" /> Permitted
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-slate-800">
                     <span className="text-slate-400">Commercial Use:</span>
-                    <span className={asset.commercial_use_allowed ? "text-emerald-400 font-semibold" : "text-slate-400"}>
-                      {asset.commercial_use_allowed ? "Permitted" : "Non-Commercial Only"}
-                    </span>
+                    <span className="text-rose-400 font-medium">Restricted</span>
                   </div>
                   <div className="flex items-center justify-between py-1 border-b border-slate-800">
                     <span className="text-slate-400">Remix & Modification:</span>
-                    <span className="text-emerald-400 font-semibold">
-                      {asset.modification_allowed !== false ? "Permitted" : "Restricted"}
-                    </span>
+                    <span className="text-slate-400">Pending Institutional Review</span>
                   </div>
                   <div className="flex items-center justify-between py-1">
-                    <span className="text-slate-400">Redistribution:</span>
-                    <span className="text-emerald-400 font-semibold">
-                      {asset.redistribution_allowed !== false ? "Permitted (Attribution Required)" : "Restricted"}
-                    </span>
+                    <span className="text-slate-400">Public Binary Download:</span>
+                    <span className="text-rose-400 font-medium">Restricted (Viewing Only)</span>
+                  </div>
+                </div>
+
+                {/* Download Protection Notice Banner */}
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-2 text-amber-200 text-[11px] leading-normal">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Direct Binary Download Restricted:</strong> Public distribution of raw model binary files is restricted
+                    until full archival rights verification is completed. Interactive visual inspection in this 3D viewer is fully authorized.
                   </div>
                 </div>
 
@@ -374,7 +401,7 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
                     Institutional Provenance & Attribution
                   </span>
                   <p className="text-[11px] text-slate-300 leading-relaxed italic">
-                    "{asset.attribution_text || `Curated by ${asset.creator || "3D BHARAT Initiative"} under ${asset.licence_name || "CC-BY-4.0"}.`}"
+                    "{asset.attribution_text || `Synthesized via 3D BHARAT geometry engine. Permitted for in-browser visual inspection only.`}"
                   </p>
                   {asset.source_url && (
                     <a
@@ -383,7 +410,7 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
                       rel="noopener noreferrer"
                       className="mt-2.5 inline-flex items-center gap-1 text-[11px] text-amber-400 hover:underline"
                     >
-                      <span>Archival Source Dossier</span>
+                      <span>Archival UNESCO Monument Dossier</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -412,7 +439,7 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
                       1. Jagamohana (Porch / Mandapa)
                     </h4>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      Stepped pyramidal pidha deula roof arranged in three potalas (tiers) of horizontal courses,
+                      Stepped pyramidal pidha deula roof arranged in four tiers (potalas) of horizontal courses,
                       engineered to withstand coastal cyclone winds and shelter congregational worship.
                     </p>
                   </div>
@@ -423,8 +450,8 @@ export const Heritage3DExplorerPage: React.FC<Heritage3DExplorerPageProps> = ({
                       2. The 24 Chariot Wheels (Chakkas)
                     </h4>
                     <p className="text-[11px] text-slate-400 leading-normal">
-                      12 wheels along the northern plinth and 12 along the southern plinth. Each 3-meter wheel
-                      functions as a precision astronomical sundial with 8 major spokes and 8 minor spokes.
+                      12 wheels along the northern plinth and 12 along the southern plinth. Each wheel
+                      functions as a precision astronomical sundial with major and minor spokes and carved hubs.
                     </p>
                   </div>
 

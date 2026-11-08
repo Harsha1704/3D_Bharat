@@ -122,7 +122,7 @@ def get_asset_details(
     db: Session = Depends(get_db),
 ):
     asset = get_heritage_3d_asset(db, asset_id)
-    if not asset:
+    if not asset or asset.visibility_status == "PRIVATE" or asset.validation_status == "TEST_FIXTURE":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"3D asset with ID {asset_id} not found.",
@@ -136,14 +136,29 @@ def get_asset_details(
 )
 def download_asset_file(
     asset_id: int,
+    download: bool = Query(
+        default=False,
+        description="If true, requests file attachment download. Subject to redistribution rights.",
+    ),
     db: Session = Depends(get_db),
 ):
     asset = get_heritage_3d_asset(db, asset_id)
-    if not asset:
+    if not asset or asset.visibility_status == "PRIVATE" or asset.validation_status == "TEST_FIXTURE":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"3D asset with ID {asset_id} not found.",
         )
+
+    # Separate in-browser visual display from public binary redistribution
+    if download and not asset.redistribution_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Direct binary file download is restricted for this asset pending rights review. "
+                "In-browser visual inspection is permitted."
+            ),
+        )
+
     try:
         abs_path = storage_service.get_absolute_path(asset.storage_key)
         if not abs_path.exists():
@@ -151,6 +166,13 @@ def download_asset_file(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Physical asset file missing from storage.",
             )
+
+        content_disposition = (
+            f'attachment; filename="{asset.original_filename}"'
+            if download
+            else f'inline; filename="{asset.original_filename}"'
+        )
+
         return FileResponse(
             path=str(abs_path),
             media_type=asset.mime_type,
@@ -158,6 +180,7 @@ def download_asset_file(
             headers={
                 "Access-Control-Allow-Origin": "*",
                 "Cache-Control": "public, max-age=86400",
+                "Content-Disposition": content_disposition,
             },
         )
     except ValueError as exc:

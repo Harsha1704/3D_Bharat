@@ -25,12 +25,13 @@ def test_get_pilot_monument_asset():
     assert data["is_pilot"] is True
     assert data["heritage_site_id"] == 3
     assert data["asset_format"] == "GLB"
-    assert data["asset_origin"] == "HISTORICAL_RECONSTRUCTION"
+    assert data["asset_origin"] == "ARCHITECTURAL_VISUALIZATION"
     assert "file_url" in data
     assert data["file_size_bytes"] > 0
     assert len(data["checksum_sha256"]) == 64
-    assert data["rights_status"] == "CREATIVE_COMMONS"
-    assert data["licence_name"] == "CC-BY-4.0"
+    assert data["rights_status"] == "RIGHTS_REVIEW_REQUIRED"
+    assert data["licence_name"] == "RIGHTS_REVIEW_PENDING"
+    assert data["redistribution_allowed"] is False
     assert "UNESCO" in (data["source_identifier"] or "")
 
 
@@ -165,3 +166,6 @@ def test_ingest_new_3d_asset_workflow(monkeypatch):
     file_resp = client.get(created["file_url"])
     assert file_resp.status_code == 200
     assert file_resp.content.startswith(b"glTF")
+
+    # Cleanup test fixture
+    client.delete(f"/api/v1/heritage-3d-assets/{created['id']}", headers={"X-API-Key": test_key})

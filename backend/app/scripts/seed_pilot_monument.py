@@ -1,7 +1,7 @@
 """
 3D BHARAT - Seed Pilot Monument Asset
-Registers the Konark Sun Temple 3D model into the database with full provenance,
-verified SHA-256 checksum, and marks it as the official pilot monument.
+Registers the Konark Sun Temple 3D model into the database with verified provenance,
+honest architectural visualization classification, and rights-review tracking.
 """
 import hashlib
 import json
@@ -20,7 +20,6 @@ def seed_pilot_asset():
         # 1. Locate Konark site
         site = db.query(HeritageSite).filter(HeritageSite.id == 3).first()
         if not site:
-            # Fallback search by name
             site = db.query(HeritageSite).filter(HeritageSite.name.ilike("%Konark%")).first()
         if not site:
             raise RuntimeError("Heritage site for Konark Sun Temple not found in database.")
@@ -55,33 +54,35 @@ def seed_pilot_asset():
             )
             db.add(asset)
 
-        # Set / Update metadata
+        # Set verified metadata reflecting genuine asset origin and rights review status
         asset.title = "Konark Sun Temple — Chariot of Surya (Jagamohana & Great Wheels)"
         asset.description = (
-            "Authentic architectural digital preservation model of the 13th-century Konark Sun Temple "
-            "(Surya Deula), conceived as a colossal cosmic chariot with 24 carved wheels, stepped "
-            "pyramidal Jagamohana (porch) with pidhas, fluted amalaka stone, and golden kalasha finial."
+            "Procedural 3D architectural visualization of the Konark Sun Temple (Surya Deula), "
+            "programmatically synthesized from Kalinga architectural canons (stepped pyramidal "
+            "Jagamohana with 4 pidha tiers, 24 cosmic chariot wheels, crowning fluted amalaka stone, "
+            "and golden kalasha finial). Internal synthetic research visualization."
         )
-        asset.asset_origin = "HISTORICAL_RECONSTRUCTION"
+        asset.asset_origin = "ARCHITECTURAL_VISUALIZATION"
         asset.original_format = "GLB"
         asset.processed_format = "GLB"
         asset.units = "meters"
         asset.coordinate_system = "Cartesian Y-Up (Meters), East-Facing Surya Axis"
         asset.source_url = "https://whc.unesco.org/en/list/246/"
         asset.source_identifier = "UNESCO-246-KONARK-3D"
-        asset.creator = "3D BHARAT Digital Heritage Preservation Initiative"
+        asset.creator = "3D BHARAT Computational Heritage Studio (Procedural Generator)"
         asset.publisher = "3D BHARAT National Heritage Intelligence Platform"
-        asset.licence_name = "CC-BY-4.0"
-        asset.licence_url = "https://creativecommons.org/licenses/by/4.0/"
-        asset.rights_status = "CREATIVE_COMMONS"
+        asset.licence_name = "RIGHTS_REVIEW_PENDING"
+        asset.licence_url = None
+        asset.rights_status = "RIGHTS_REVIEW_REQUIRED"
         asset.attribution_text = (
-            "Konark Sun Temple Architectural Reconstruction (c) 2026 3D BHARAT Initiative. "
-            "Based on Archaeological Survey of India (ASI) survey elevations and Kalinga deula "
-            "treatise canons. Licensed under CC-BY 4.0."
+            "Konark Sun Temple procedural architectural visualization synthesized via "
+            "3D BHARAT geometry engine. Geometry based on canonical Kalinga deula treatise "
+            "proportions. Institutional rights and public redistribution under review. "
+            "Permitted for in-browser visual inspection only."
         )
         asset.commercial_use_allowed = False
-        asset.modification_allowed = True
-        asset.redistribution_allowed = True
+        asset.modification_allowed = False
+        asset.redistribution_allowed = False
         asset.poly_count = 3332
         asset.vertex_count = 3732
         asset.texture_resolution = "PBR Procedural Sandstone & Chlorite"

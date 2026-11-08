@@ -60,6 +60,7 @@ def get_pilot_asset(db: Session) -> Optional[Heritage3DAsset]:
         select(Heritage3DAsset)
         .where(Heritage3DAsset.is_pilot == True)
         .where(Heritage3DAsset.visibility_status == "PUBLIC")
+        .where(Heritage3DAsset.validation_status != "TEST_FIXTURE")
         .order_by(Heritage3DAsset.id)
     )
     return db.execute(stmt).scalars().first()
@@ -80,7 +81,10 @@ def list_heritage_3d_assets_by_site(
     if processing_status:
         stmt = stmt.where(Heritage3DAsset.processing_status == processing_status)
     if public_only:
-        stmt = stmt.where(Heritage3DAsset.visibility_status == "PUBLIC")
+        stmt = (
+            stmt.where(Heritage3DAsset.visibility_status == "PUBLIC")
+            .where(Heritage3DAsset.validation_status != "TEST_FIXTURE")
+        )
 
     stmt = stmt.offset(skip).limit(limit).order_by(Heritage3DAsset.id)
     return list(db.execute(stmt).scalars().all())
@@ -112,7 +116,10 @@ def list_all_heritage_3d_assets(
     if verification_status:
         stmt = stmt.where(Heritage3DAsset.verification_status.ilike(f"%{verification_status}%"))
         count_stmt = count_stmt.where(Heritage3DAsset.verification_status.ilike(f"%{verification_status}%"))
-    if visibility_status:
+    if visibility_status == "PUBLIC":
+        stmt = stmt.where(Heritage3DAsset.visibility_status == "PUBLIC").where(Heritage3DAsset.validation_status != "TEST_FIXTURE")
+        count_stmt = count_stmt.where(Heritage3DAsset.visibility_status == "PUBLIC").where(Heritage3DAsset.validation_status != "TEST_FIXTURE")
+    elif visibility_status:
         stmt = stmt.where(Heritage3DAsset.visibility_status == visibility_status)
         count_stmt = count_stmt.where(Heritage3DAsset.visibility_status == visibility_status)
     if is_pilot is not None:
