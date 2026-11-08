@@ -35,7 +35,7 @@ const navItems: NavItemConfig[] = [
   { path: "/map", label: "India Heritage Map", icon: MapPin },
   { path: "/graph", label: "Knowledge Graph", badge: "44", icon: Network },
   { path: "/assistant", label: "AI Intelligence", badge: "RAG", icon: Bot },
-  { path: "/3d", label: "3D Exploration", icon: Box },
+  { path: "/3d", label: "3D Exploration", badge: "PILOT", icon: Box },
   { path: "/coverage", label: "National Coverage", badge: "ASI", icon: ShieldCheck },
   { path: "/analytics", label: "Heritage Analytics", icon: BarChart3 },
   { path: "/management", label: "Preservation Mgmt", icon: Database },

@@ -1,5 +1,9 @@
+import json
+import logging
+import os
 import re
-from typing import BinaryIO, Dict, List, Optional, Tuple
+import struct
+from typing import BinaryIO, Dict, List, Optional, Tuple, Any
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -8,6 +12,8 @@ from app.models.heritage_source import HeritageSource
 from app.models.heritage_3d_asset import Heritage3DAsset
 from app.schemas.heritage_3d_asset import Heritage3DAssetCreate, Heritage3DAssetUpdate
 from app.services.storage_service import storage_service
+
+logger = logging.getLogger("3d_bharat.heritage_3d")
 
 
 def create_heritage_3d_asset(
@@ -49,11 +55,22 @@ def get_heritage_3d_asset(
     return db.execute(stmt).scalar_one_or_none()
 
 
+def get_pilot_asset(db: Session) -> Optional[Heritage3DAsset]:
+    stmt = (
+        select(Heritage3DAsset)
+        .where(Heritage3DAsset.is_pilot == True)
+        .where(Heritage3DAsset.visibility_status == "PUBLIC")
+        .order_by(Heritage3DAsset.id)
+    )
+    return db.execute(stmt).scalars().first()
+
+
 def list_heritage_3d_assets_by_site(
     db: Session,
     site_id: int,
     asset_format: Optional[str] = None,
     processing_status: Optional[str] = None,
+    public_only: bool = False,
     skip: int = 0,
     limit: int = 100,
 ) -> List[Heritage3DAsset]:
@@ -62,6 +79,8 @@ def list_heritage_3d_assets_by_site(
         stmt = stmt.where(Heritage3DAsset.asset_format == asset_format)
     if processing_status:
         stmt = stmt.where(Heritage3DAsset.processing_status == processing_status)
+    if public_only:
+        stmt = stmt.where(Heritage3DAsset.visibility_status == "PUBLIC")
 
     stmt = stmt.offset(skip).limit(limit).order_by(Heritage3DAsset.id)
     return list(db.execute(stmt).scalars().all())
@@ -73,6 +92,8 @@ def list_all_heritage_3d_assets(
     asset_format: Optional[str] = None,
     processing_status: Optional[str] = None,
     verification_status: Optional[str] = None,
+    visibility_status: Optional[str] = None,
+    is_pilot: Optional[bool] = None,
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[List[Heritage3DAsset], int]:
@@ -91,6 +112,12 @@ def list_all_heritage_3d_assets(
     if verification_status:
         stmt = stmt.where(Heritage3DAsset.verification_status.ilike(f"%{verification_status}%"))
         count_stmt = count_stmt.where(Heritage3DAsset.verification_status.ilike(f"%{verification_status}%"))
+    if visibility_status:
+        stmt = stmt.where(Heritage3DAsset.visibility_status == visibility_status)
+        count_stmt = count_stmt.where(Heritage3DAsset.visibility_status == visibility_status)
+    if is_pilot is not None:
+        stmt = stmt.where(Heritage3DAsset.is_pilot == is_pilot)
+        count_stmt = count_stmt.where(Heritage3DAsset.is_pilot == is_pilot)
 
     total = db.execute(count_stmt).scalar_one()
     items = list(db.execute(stmt.offset(skip).limit(limit).order_by(Heritage3DAsset.id)).scalars().all())
@@ -116,6 +143,198 @@ def update_heritage_3d_asset(
     update_dict = update_data.model_dump(exclude_unset=True)
     for field, value in update_dict.items():
         setattr(asset, field, value)
+
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+def validate_heritage_3d_asset(
+    db: Session,
+    asset_id: int,
+) -> Dict[str, Any]:
+    """
+    Rigorously validates a 3D asset file on disk:
+    - Path & presence check
+    - Checksum SHA-256 match
+    - Format-specific validation (GLB header, glTF JSON structure, OBJ geometry tokens)
+    - Updates validation_status and validation_report
+    """
+    asset = get_heritage_3d_asset(db, asset_id)
+    if asset is None:
+        raise ValueError(f"Heritage 3D asset with id {asset_id} does not exist.")
+
+    errors: List[str] = []
+    warnings: List[str] = []
+    details: Dict[str, Any] = {
+        "format": asset.asset_format,
+        "storage_key": asset.storage_key,
+    }
+
+    try:
+        abs_path = storage_service.get_absolute_path(asset.storage_key)
+        if not abs_path.exists():
+            errors.append(f"Storage file missing at {asset.storage_key}")
+            asset.validation_status = "FAILED"
+            asset.validation_report = json.dumps({"errors": errors, "warnings": warnings, "details": details})
+            db.commit()
+            return {
+                "asset_id": asset_id,
+                "is_valid": False,
+                "magic_bytes_valid": False,
+                "format_recognized": False,
+                "file_size_bytes": 0,
+                "checksum_sha256": asset.checksum_sha256,
+                "validation_status": asset.validation_status,
+                "errors": errors,
+                "warnings": warnings,
+                "details": details,
+            }
+
+        file_size = abs_path.stat().st_size
+        details["file_size_bytes"] = file_size
+
+        # Checksum calculation
+        import hashlib
+        sha = hashlib.sha256()
+        with open(abs_path, "rb") as f:
+            while chunk := f.read(65536):
+                sha.update(chunk)
+        actual_checksum = sha.hexdigest()
+        details["calculated_checksum"] = actual_checksum
+
+        if actual_checksum.lower() != asset.checksum_sha256.lower():
+            errors.append(
+                f"Checksum mismatch: expected {asset.checksum_sha256}, calculated {actual_checksum}"
+            )
+
+        magic_valid = False
+        format_recognized = False
+
+        fmt = asset.asset_format.upper()
+        with open(abs_path, "rb") as f:
+            header = f.read(64)
+
+        if fmt == "GLB" or abs_path.suffix.lower() == ".glb":
+            format_recognized = True
+            if header.startswith(b"glTF"):
+                magic_valid = True
+                if len(header) >= 12:
+                    magic, version, length = struct.unpack("<4sII", header[:12])
+                    details["gltf_version"] = version
+                    details["gltf_header_length"] = length
+                    if version != 2:
+                        warnings.append(f"glTF version is {version}, recommended is 2.")
+                    if length != file_size:
+                        warnings.append(f"Header length ({length}) differs from file size ({file_size}).")
+            else:
+                errors.append("Invalid GLB: missing 'glTF' magic header.")
+
+        elif fmt == "GLTF" or abs_path.suffix.lower() == ".gltf":
+            format_recognized = True
+            try:
+                with open(abs_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if "asset" in data and "version" in data["asset"]:
+                    magic_valid = True
+                    details["gltf_version"] = data["asset"]["version"]
+                else:
+                    errors.append("Malformed glTF: missing asset.version metadata.")
+            except Exception as e:
+                errors.append(f"glTF JSON parsing error: {e}")
+
+        elif fmt == "OBJ" or abs_path.suffix.lower() == ".obj":
+            format_recognized = True
+            text_sample = header.decode("utf-8", errors="replace")
+            lines = [l.strip() for l in text_sample.splitlines() if l.strip()]
+            valid_tokens = ("#", "v ", "vn ", "vt ", "f ", "g ", "o ", "mtllib ")
+            if any(l.startswith(valid_tokens) for l in lines):
+                magic_valid = True
+            else:
+                errors.append("Invalid OBJ: missing standard geometric tokens.")
+        else:
+            format_recognized = True
+            magic_valid = True
+            warnings.append(f"Generic validation applied for format {fmt}.")
+
+        is_valid = len(errors) == 0
+        asset.validation_status = "READY" if is_valid else "FAILED"
+        if is_valid and asset.processing_status != "READY":
+            asset.processing_status = "READY"
+
+        report = {
+            "errors": errors,
+            "warnings": warnings,
+            "details": details,
+            "validated_at": str(asset.updated_at),
+        }
+        asset.validation_report = json.dumps(report)
+        db.commit()
+        db.refresh(asset)
+
+        return {
+            "asset_id": asset_id,
+            "is_valid": is_valid,
+            "magic_bytes_valid": magic_valid,
+            "format_recognized": format_recognized,
+            "file_size_bytes": file_size,
+            "checksum_sha256": actual_checksum,
+            "validation_status": asset.validation_status,
+            "errors": errors,
+            "warnings": warnings,
+            "details": details,
+        }
+
+    except Exception as exc:
+        logger.error(f"Error validating asset {asset_id}: {exc}")
+        asset.validation_status = "FAILED"
+        asset.validation_report = json.dumps({"errors": [str(exc)], "warnings": warnings, "details": details})
+        db.commit()
+        raise
+
+
+def publish_heritage_3d_asset(
+    db: Session,
+    asset_id: int,
+    visibility_status: str = "PUBLIC",
+) -> Heritage3DAsset:
+    asset = get_heritage_3d_asset(db, asset_id)
+    if asset is None:
+        raise ValueError(f"Heritage 3D asset with id {asset_id} does not exist.")
+
+    if asset.validation_status not in ("READY", "VALIDATING"):
+        raise ValueError(
+            f"Cannot publish asset with validation status '{asset.validation_status}'. "
+            "Please validate the asset successfully first."
+        )
+
+    asset.visibility_status = visibility_status
+    asset.processing_status = "READY"
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+def archive_heritage_3d_asset(
+    db: Session,
+    asset_id: int,
+    reason: Optional[str] = None,
+) -> Heritage3DAsset:
+    asset = get_heritage_3d_asset(db, asset_id)
+    if asset is None:
+        raise ValueError(f"Heritage 3D asset with id {asset_id} does not exist.")
+
+    asset.visibility_status = "ARCHIVED"
+    asset.validation_status = "ARCHIVED"
+    if reason:
+        current_report = {}
+        if asset.validation_report:
+            try:
+                current_report = json.loads(asset.validation_report)
+            except Exception:
+                current_report = {"raw": asset.validation_report}
+        current_report["archive_reason"] = reason
+        asset.validation_report = json.dumps(current_report)
 
     db.commit()
     db.refresh(asset)
@@ -188,13 +407,11 @@ def verify_3d_asset_companions(
                     match = re.match(r"^\s*mtllib\s+(.+)$", line)
                     if match:
                         ref_file = match.group(1).strip()
-                        # Sanitize reference to prevent directory traversal
                         ref_file = storage_service.sanitize_filename(ref_file)
                         referenced.append(ref_file)
         except Exception:
             pass
 
-    # Check companion folder
     companions_dir = abs_path.parent / "companions"
     found = []
     missing = []
@@ -206,7 +423,6 @@ def verify_3d_asset_companions(
         else:
             missing.append(ref)
 
-    # Also check registered companion_files list from DB
     registered = list(asset.companion_files or [])
     for reg in registered:
         target = companions_dir / reg
@@ -234,7 +450,6 @@ def delete_heritage_3d_asset(
 ) -> bool:
     """
     Deletes 3D asset record from database, then cleans up storage files.
-    If storage cleanup fails, logs error and raises RuntimeError.
     """
     asset = get_heritage_3d_asset(db, asset_id)
     if asset is None:
@@ -242,11 +457,9 @@ def delete_heritage_3d_asset(
 
     storage_key = asset.storage_key
 
-    # DB transaction first
     db.delete(asset)
     db.commit()
 
-    # Physical cleanup after successful DB commit
     try:
         storage_service.delete_file(storage_key)
     except Exception as exc:

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Compass,
   Search,
@@ -14,6 +15,7 @@ import {
   Camera,
   ChevronLeft,
   ChevronRight,
+  Box,
 } from "lucide-react";
 import type { HeritageSite } from "../api";
 
@@ -156,6 +158,7 @@ export const HeritageExplorerView: React.FC<HeritageExplorerViewProps> = ({
   onOpenSiteDossier,
   onSelectSiteOnMap,
 }) => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedState, setSelectedState] = useState<string>("ALL");
@@ -497,6 +500,14 @@ export const HeritageExplorerView: React.FC<HeritageExplorerViewProps> = ({
                     <Eye className="w-3.5 h-3.5 mr-1.5" />
                     <span>View Dossier</span>
                   </button>
+                  <button
+                    className="btn-card-map"
+                    onClick={() => navigate(`/heritage/${site.id}/3d`)}
+                    title="Launch 3D interactive model"
+                  >
+                    <Box className="w-3.5 h-3.5 mr-1 text-amber-400" />
+                    <span>3D</span>
+                  </button>
                 </div>
               </div>
             );
@@ -575,6 +586,13 @@ export const HeritageExplorerView: React.FC<HeritageExplorerViewProps> = ({
                         >
                           <Eye className="w-3.5 h-3.5 text-amber-400 mr-1" />
                           <span>Dossier</span>
+                        </button>
+                        <button
+                          className="table-btn secondary"
+                          onClick={() => navigate(`/heritage/${site.id}/3d`)}
+                          title="Launch 3D Model"
+                        >
+                          <Box className="w-3.5 h-3.5 text-amber-400" />
                         </button>
                       </div>
                     </td>

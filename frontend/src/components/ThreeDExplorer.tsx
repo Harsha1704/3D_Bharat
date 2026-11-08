@@ -1,13 +1,15 @@
 import React from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Box,
   ArrowRight,
-  UploadCloud,
   ShieldCheck,
-  Lock,
-  Scan,
+  Eye,
+  RotateCw,
+  Sparkles,
 } from "lucide-react";
 import type { Heritage3DAsset } from "../api";
+import Heritage3DExplorerPage from "./Heritage3DExplorerPage";
 
 interface ThreeDExplorerProps {
   assets3D?: Heritage3DAsset[];
@@ -20,128 +22,68 @@ export const ThreeDExplorer: React.FC<ThreeDExplorerProps> = ({
   onExplore3D,
   isFullPage = false,
 }) => {
+  const navigate = useNavigate();
   const hasModels = assets3D.length > 0;
+  const pilotModel = assets3D.find((a) => a.is_pilot) || assets3D[0];
 
   if (isFullPage) {
-    return (
-      <div className="preservation-workspace-container">
-        {/* Workspace Header */}
-        <div className="preservation-header-bar">
-          <div>
-            <div className="flex items-center gap-2">
-              <Box className="w-5 h-5 text-amber-400" />
-              <h2 className="text-xl font-bold text-white tracking-wide">
-                3D Digital Preservation & Photogrammetry Archives
-              </h2>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              National archival repository for millimeter-accurate laser scans, photogrammetry models, and 3D Gaussian Splats.
-            </p>
-          </div>
-
-          <div className="preservation-badge-pill">
-            <span className="live-pulse-dot" />
-            <span>Phase 4 Preservation Standard • Zero Models Registered</span>
-          </div>
-        </div>
-
-        {/* Empty State / Intake Architecture */}
-        <div className="preservation-showcase-panel">
-          <div className="preservation-empty-card">
-            <div className="empty-icon-halo">
-              <Scan className="w-10 h-10 text-amber-400" />
-            </div>
-
-            <h3 className="text-lg font-bold text-white mt-3">
-              National 3D Photogrammetry Archive Active
-            </h3>
-            <p className="text-sm text-gray-400 max-w-xl text-center mt-2 leading-relaxed">
-              No 3D models have been registered yet in the primary database. The national preservation pipeline is initialized and accepts verified archaeological captures with cryptographic SHA-256 integrity verification.
-            </p>
-
-            <div className="supported-formats-row mt-6">
-              <div className="format-badge">
-                <span className="format-ext">.GLB</span>
-                <span className="format-desc">Binary GLTF with embedded PBR textures</span>
-              </div>
-              <div className="format-badge">
-                <span className="format-ext">.GLTF</span>
-                <span className="format-desc">JSON scene hierarchy with buffers</span>
-              </div>
-              <div className="format-badge">
-                <span className="format-ext">.OBJ + .MTL</span>
-                <span className="format-desc">Wavefront polygon mesh & materials</span>
-              </div>
-              <div className="format-badge">
-                <span className="format-ext">.SPLAT</span>
-                <span className="format-desc">3D Gaussian Splatting radiance fields</span>
-              </div>
-            </div>
-
-            {/* Workflow Diagram */}
-            <div className="preservation-workflow-box mt-8">
-              <h4 className="text-xs uppercase tracking-wider text-amber-400 font-semibold mb-3">
-                Digital Preservation Intake Workflow
-              </h4>
-              <div className="workflow-steps-grid">
-                <div className="workflow-step">
-                  <div className="step-num">01</div>
-                  <h5 className="step-title">Survey Capture</h5>
-                  <p className="step-desc">LiDAR & aerial drone overlapping high-resolution imagery</p>
-                </div>
-                <div className="workflow-step">
-                  <div className="step-num">02</div>
-                  <h5 className="step-title">Point Cloud Generation</h5>
-                  <p className="step-desc">Sub-millimeter structure-from-motion alignment</p>
-                </div>
-                <div className="workflow-step">
-                  <div className="step-num">03</div>
-                  <h5 className="step-title">Mesh & Texture Archival</h5>
-                  <p className="step-desc">PBR material baking with spatial normal preservation</p>
-                </div>
-                <div className="workflow-step">
-                  <div className="step-num">04</div>
-                  <h5 className="step-title">SHA-256 Provenance</h5>
-                  <p className="step-desc">Cryptographic checksum registered in PostgreSQL</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Security note */}
-            <div className="preservation-security-note mt-6">
-              <Lock className="w-4 h-4 text-amber-400 mr-2 shrink-0" />
-              <span className="text-xs text-gray-400">
-                Registering new preservation models requires authenticated administrative credentials via the Preservation Management portal.
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <Heritage3DExplorerPage />;
   }
 
-  // Compact panel mode for dashboard
+  // Compact panel mode for Command Centre dashboard
   return (
     <div className="bottom-panel-card three-d-panel">
       <div className="panel-header">
         <div className="panel-title-group">
           <Box className="panel-icon text-amber-400" />
-          <h3 className="panel-title">3D Digital Preservation</h3>
+          <h3 className="panel-title">Interactive 3D Heritage Exploration</h3>
         </div>
-        <button className="panel-action-link" onClick={onExplore3D}>
-          <span>{hasModels ? "View Assets" : "Pipeline Info"}</span>
+        <Link
+          to={pilotModel ? `/heritage/${pilotModel.heritage_site_id}/3d` : "/3d"}
+          className="panel-action-link"
+          onClick={() => {
+            if (onExplore3D) onExplore3D();
+          }}
+        >
+          <span>Launch 3D Viewer</span>
           <ArrowRight className="w-4 h-4 ml-1 inline" />
-        </button>
+        </Link>
       </div>
 
-      {hasModels ? (
-        <div className="three-d-hero-card" onClick={onExplore3D}>
-          <div className="three-d-card-caption">
-            <div className="caption-left">
-              <span className="caption-headline">{assets3D[0].title}</span>
-              <p className="caption-subline">
-                Format: {assets3D[0].file_format.toUpperCase()} • {assets3D[0].vertex_count || 0} Vertices
-              </p>
+      {hasModels && pilotModel ? (
+        <div
+          className="three-d-hero-card cursor-pointer group"
+          onClick={() => navigate(`/heritage/${pilotModel.heritage_site_id}/3d`)}
+        >
+          <div className="relative p-5 bg-gradient-to-br from-[#0c1836] to-[#070d1e] rounded-xl border border-[#d4af37]/30 hover:border-[#d4af37]/60 transition-all shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <span className="px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded-full uppercase flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Pilot Monument • Konark Sun Temple
+              </span>
+              <span className="px-2 py-0.5 text-[10px] font-medium text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 rounded-full flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                Verified glTF 2.0
+              </span>
+            </div>
+
+            <h4 className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">
+              {pilotModel.title}
+            </h4>
+            <p className="text-xs text-slate-300 mt-1 line-clamp-2 leading-relaxed">
+              {pilotModel.description}
+            </p>
+
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 text-xs">
+              <div className="flex items-center gap-3 text-slate-400">
+                <span>{(pilotModel.poly_count || pilotModel.polygon_count || 3332).toLocaleString()} Polygons</span>
+                <span>•</span>
+                <span>{(pilotModel.file_size_bytes / 1024).toFixed(1)} KB</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-amber-400 font-medium group-hover:translate-x-0.5 transition-transform">
+                <Eye className="w-3.5 h-3.5" />
+                <span>Open in 3D</span>
+              </div>
             </div>
           </div>
         </div>
@@ -150,20 +92,15 @@ export const ThreeDExplorer: React.FC<ThreeDExplorerProps> = ({
           <div className="empty-state-icon-ring">
             <Box className="w-8 h-8 text-amber-400" />
           </div>
-          <h4 className="empty-state-title">No 3D Models Registered Yet</h4>
+          <h4 className="empty-state-title">3D Preservation Engine Ready</h4>
           <p className="empty-state-desc">
-            The national 3D photogrammetry intake is active and ready to register
-            verified scans (GLB, GLTF, OBJ, SPLAT) under the Phase 4 preservation standard.
+            Explore authentic 3D architectural models of India's world heritage monuments.
           </p>
           <div className="empty-state-actions">
-            <button className="btn-empty-action" onClick={onExplore3D}>
-              <UploadCloud className="w-3.5 h-3.5 mr-1.5 inline" />
-              <span>Preservation Pipeline</span>
-            </button>
-            <span className="pipeline-status-badge">
-              <ShieldCheck className="w-3 h-3 mr-1 inline text-emerald-400" />
-              Ingestion Ready (0 Models)
-            </span>
+            <Link to="/3d" className="btn-empty-action">
+              <RotateCw className="w-3.5 h-3.5 mr-1.5 inline" />
+              <span>Explore Pilot Monument</span>
+            </Link>
           </div>
         </div>
       )}

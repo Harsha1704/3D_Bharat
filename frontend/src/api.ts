@@ -131,10 +131,12 @@ export interface Heritage3DAsset {
   heritage_site_id: number;
   title: string;
   description?: string | null;
-  asset_type: string;
-  file_format: string;
+  asset_type?: string;
+  file_format?: string;
+  asset_format?: string;
   vertex_count?: number | null;
   polygon_count?: number | null;
+  poly_count?: number | null;
   texture_resolution?: string | null;
   has_companion_files?: boolean;
   companion_files_count?: number;
@@ -145,6 +147,28 @@ export interface Heritage3DAsset {
   original_filename: string;
   mime_type: string;
   file_url?: string;
+  asset_origin?: string;
+  original_format?: string | null;
+  processed_format?: string;
+  source_url?: string | null;
+  source_identifier?: string | null;
+  creator?: string | null;
+  publisher?: string | null;
+  licence_name?: string;
+  licence_url?: string | null;
+  rights_status?: string;
+  attribution_text?: string | null;
+  commercial_use_allowed?: boolean;
+  modification_allowed?: boolean;
+  redistribution_allowed?: boolean;
+  lod_levels?: number;
+  units?: string | null;
+  coordinate_system?: string | null;
+  coordinate_notes?: string | null;
+  validation_status?: string;
+  validation_report?: string | null;
+  visibility_status?: string;
+  is_pilot?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -755,14 +779,33 @@ export async function getHeritage3DAssets(
   signal?: AbortSignal
 ): Promise<Heritage3DAsset[]> {
   if (siteId) {
-    return apiRequest<Heritage3DAsset[]>(`/heritage-3d-assets/site/${siteId}`, {
+    return apiRequest<Heritage3DAsset[]>(`/heritage-3d/sites/${siteId}`, {
       signal,
     });
   }
-  const result = await apiRequest<
-    { items: Heritage3DAsset[] } | Heritage3DAsset[]
-  >("/heritage-3d-assets", { signal });
+  const result = await apiRequest<{ items: Heritage3DAsset[] } | Heritage3DAsset[]>(
+    "/heritage-3d/assets",
+    { signal }
+  );
   return Array.isArray(result) ? result : result?.items || [];
+}
+
+export async function getPilot3DAsset(signal?: AbortSignal): Promise<Heritage3DAsset> {
+  return apiRequest<Heritage3DAsset>("/heritage-3d/pilot", { signal });
+}
+
+export async function getSite3DAssets(
+  siteId: number,
+  signal?: AbortSignal
+): Promise<Heritage3DAsset[]> {
+  return apiRequest<Heritage3DAsset[]>(`/heritage-3d/sites/${siteId}`, { signal });
+}
+
+export async function get3DAssetDetails(
+  assetId: number,
+  signal?: AbortSignal
+): Promise<Heritage3DAsset> {
+  return apiRequest<Heritage3DAsset>(`/heritage-3d/assets/${assetId}`, { signal });
 }
 
 /* =========================================================

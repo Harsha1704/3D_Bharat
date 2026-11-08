@@ -20,7 +20,7 @@ import HeritageExplorerView from "./components/HeritageExplorerView";
 import InteractiveIndiaMap from "./components/InteractiveIndiaMap";
 import KnowledgeGraphView from "./components/KnowledgeGraphView";
 import AiHeritageAssistant from "./components/AiHeritageAssistant";
-import ThreeDExplorer from "./components/ThreeDExplorer";
+import Heritage3DExplorerPage from "./components/Heritage3DExplorerPage";
 import NationalCoverageView from "./components/NationalCoverageView";
 import HeritageAnalytics from "./components/HeritageAnalytics";
 import HeritageManagement from "./components/HeritageManagement";
@@ -312,7 +312,11 @@ function AppContent() {
             {/* ROUTE 6: 3D DIGITAL PRESERVATION */}
             <Route
               path="/3d"
-              element={<ThreeDExplorer isFullPage={true} assets3D={threeDAssets} />}
+              element={<Heritage3DExplorerPage initialAssets={threeDAssets} />}
+            />
+            <Route
+              path="/heritage/:siteId/3d"
+              element={<Heritage3DExplorerPage initialAssets={threeDAssets} />}
             />
 
             {/* ROUTE 7: NATIONAL DATA COVERAGE & ASI AUDIT */}

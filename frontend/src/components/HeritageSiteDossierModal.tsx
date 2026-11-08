@@ -313,12 +313,21 @@ export const HeritageSiteDossierModal: React.FC<
                         <div key={ast.id} className="asset-3d-card">
                           <div className="asset-header">
                             <Box className="w-5 h-5 text-amber-400" />
-                            <span className="asset-format">{ast.file_format.toUpperCase()}</span>
+                            <span className="asset-format">{(ast.file_format || ast.asset_format || "GLB").toUpperCase()}</span>
                           </div>
                           <h4 className="asset-title">{ast.title}</h4>
                           <div className="asset-meta-row">
                             <span>Vertices: {ast.vertex_count?.toLocaleString() || "Standard"}</span>
                             <span>Status: {ast.verification_status}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-3">
+                            <a
+                              href={`/heritage/${site.id}/3d`}
+                              className="asset-download-btn text-center"
+                              style={{ backgroundColor: "#d4af37", color: "#000", fontWeight: "bold" }}
+                            >
+                              Launch 3D Viewer
+                            </a>
                           </div>
                           {ast.file_url && (
                             <a
@@ -338,6 +347,13 @@ export const HeritageSiteDossierModal: React.FC<
                       <p>
                         Photogrammetry scan pipeline ready. Models in GLB, GLTF, OBJ, or SPLAT formats can be uploaded via the Management panel.
                       </p>
+                      <a
+                        href="/3d"
+                        className="asset-download-btn mt-3 inline-block"
+                        style={{ backgroundColor: "#d4af37", color: "#000", fontWeight: "bold" }}
+                      >
+                        Explore Pilot 3D Model (Konark Sun Temple)
+                      </a>
                     </div>
                   )}
                 </div>

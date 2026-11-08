@@ -23,6 +23,9 @@ from app.api.v1.heritage_media import (
 from app.api.v1.heritage_3d_assets import (
     router as heritage_3d_assets_router,
 )
+from app.api.v1.heritage_3d import (
+    router as heritage_3d_router,
+)
 from app.api.v1.heritage_ingestion import (
     router as heritage_ingestion_router,
 )
@@ -107,6 +110,11 @@ app.include_router(
 
 app.include_router(
     heritage_3d_assets_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    heritage_3d_router,
     prefix="/api/v1",
 )
 
